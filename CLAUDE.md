@@ -1,92 +1,250 @@
 # FEDrA – Project Context (Phase-1)
-**Last Updated:** 2026-03-03  
-**Status:** Implementation Prep → Dataset Pipeline  
+**Last Updated:** 2026-03-03
+**Repo:** https://github.com/Gauthamkv14/FEDrA.git
+**Status:** Environment Ready → Dataset Pipeline Next
 
-> **FEDrA** = **FE**derated **D**etection of **Ra**nsomware & Phishing (Phase-1 focuses on phishing)  
-> Phase-1 Goal: Build an **explainable**, **multimodal browser extension** for real-time zero-day phishing detection.
+> **FEDrA** = **FE**derated **D**etection of **Ra**nsomware & Phishing
+> Phase-1 Goal: Explainable, multimodal browser extension for real-time zero-day phishing detection.
+
+---
+
+## 🤖 Claude Code (Antigravity) Instructions
+
+This file is the single source of truth for the AI agent working on this project.
+
+### Ground Rules for Agent
+- **Never use folder names as features** — label leakage risk (see Dataset Notes)
+- **Always work on `development` branch** — never commit to `main`
+- **Always activate `fedra` conda env** before running any Python
+- **Read this file fully** before starting any task
+- **One task at a time** — complete and test before moving to next
+- **Never delete dataset folders** — treat `Dataset/` as read-only raw data
+
+### How to Run Tasks
+Agent should follow this pattern for every task:
+1. Read relevant section of CLAUDE.md
+2. Check current branch (`git branch`)
+3. Do the work
+4. Test the output
+5. Commit to `development` with a clear message
+6. Report what was done and what's next
 
 ---
 
 ## 🎯 Core Objective
 
-Detect phishing websites in real time using a browser extension (Manifest V3) that analyzes:
+Detect phishing websites in real time using a browser extension (Manifest V3) analyzing:
 - **URL structure**
 - **HTML/DOM content**
 - **Visual layout (screenshot)**
 
 Requirements:
 - Detect **zero-day attacks** (no blacklists)
-- Provide **human-readable explanations** (SHAP + Grad-CAM)
+- **Human-readable explanations** (SHAP + Grad-CAM)
 - Run **locally** in the browser (no server API calls during inference)
-- Be **lightweight** and feasible on modest hardware
+- **Lightweight** — feasible on modest hardware
 
 ---
 
 ## ✅ Finalized Decisions
 
-| Component              | Decision                                                         |
-|------------------------|------------------------------------------------------------------|
-| Deployment             | Browser Extension (Chrome/Edge, Manifest V3)                    |
-| Inference Mode         | Real-time, client-side                                           |
-| Modalities             | URL + HTML/DOM + Screenshot (Visual)                            |
-| Model Architecture     | MLP (URL) + MLP (HTML) + CNN (Image) → Concat → MLP Classifier  |
-| Visual Encoder         | ResNet18 / MobileNetV2 (candidates)                             |
-| Fusion Strategy        | Feature-level concatenation                                      |
-| Explainability         | SHAP (URL/HTML), Grad-CAM (Image)                               |
-| Training Approach      | Offline training + model distillation                            |
-| Export Format          | ONNX or TensorFlow.js                                            |
-| Constraints            | No DNS, no paid APIs, no server inference                        |
+| Component           | Decision                                                        |
+|---------------------|-----------------------------------------------------------------|
+| Deployment          | Browser Extension (Chrome/Edge, Manifest V3)                   |
+| Inference Mode      | Real-time, client-side                                          |
+| Modalities          | URL + HTML/DOM + Screenshot                                     |
+| Model Architecture  | MLP (URL) + MLP (HTML) + CNN (Image) → Concat → MLP Classifier |
+| Visual Encoder      | ResNet18 / MobileNetV2 (candidates)                            |
+| Fusion Strategy     | Feature-level concatenation                                     |
+| Explainability      | SHAP (URL/HTML), Grad-CAM (Image)                              |
+| Training Approach   | Offline training + model distillation                           |
+| Export Format       | ONNX or TensorFlow.js                                           |
+| Constraints         | No DNS, no paid APIs, no server inference                       |
 
 ---
 
-## 📁 Current Project Structure
+## 📁 Project Structure
 
 ```
 FEDrA/
-├── CLAUDE.md
-└── Dataset/
-    ├── legit_dataset/        # 300 folders — named by domain (e.g. www.google.com)
-    │   └── <domain>/
-    │       ├── metadata      # URL, timestamp, etc.
-    │       ├── page.html     # Raw HTML
-    │       └── screenshot    # Visual capture
-    └── phised_dataset/       # 860 folders — numbered IDs (e.g. 0002_bafybei...link)
-        └── <id>/
-            ├── metadata
-            ├── page.html
-            └── screenshot
+├── CLAUDE.md                        ← you are here
+├── .gitignore
+├── legitamate.py                    ← legit dataset collection script
+├── Dataset/
+│   ├── legit_dataset/               # 300 folders, named by domain (www.google.com)
+│   │   └── <domain>/
+│   │       ├── metadata             # contains the actual URL string
+│   │       ├── page.html
+│   │       └── screenshot
+│   ├── phised_dataset/              # 860 folders, named by hash ID (0002_bafybei...link)
+│   │   └── <id>/
+│   │       ├── metadata
+│   │       ├── page.html
+│   │       └── screenshot
+│   ├── manifest.csv                 ← TO BE CREATED (Step 2)
+│   └── features/                   ← TO BE CREATED (Step 5)
+│       ├── url_features.csv
+│       ├── html_features.csv
+│       └── visual_embeddings.npy
+├── notebooks/
+│   └── eda.ipynb                   ← TO BE CREATED (Step 3)
+├── scripts/
+│   ├── build_manifest.py           ← TO BE CREATED (Step 2)
+│   ├── extract_url_features.py     ← TO BE CREATED (Step 5)
+│   ├── extract_html_features.py    ← TO BE CREATED (Step 5)
+│   └── extract_visual_embeddings.py← TO BE CREATED (Step 5)
+├── models/                         ← TO BE CREATED later
+└── extension/                      ← TO BE CREATED later
 ```
-
-**Total samples before merge:** 1,160 (300 legit + 860 phishing)  
-**Label convention:** `0` = legitimate, `1` = phishing
 
 ---
 
 ## ⚠️ Dataset Notes & Bias Prevention
 
-- Folder names **must never be used as model features** — they would introduce severe label leakage:
-  - Legit folders use real domain names (`www.google.com`) → obvious pattern for class 0
-  - Phishing folders use opaque hash-like IDs → obvious pattern for class 1
-- Folder names are used **only as sample identifiers** during dataset construction
-- The actual features extracted (URL string from metadata, HTML content, screenshot pixels) are what the model trains on
-- URL string extracted from **metadata file** — not from folder name
+- Folder names **must NEVER be used as model features** — severe label leakage:
+  - Legit folders = real domain names (`www.google.com`) → obvious class 0 pattern
+  - Phishing folders = hash IDs (`0002_bafybei...`) → obvious class 1 pattern
+- Folder names are **only used as file paths** to locate `metadata`, `page.html`, `screenshot`
+- The **URL string comes from the metadata file**, not the folder name
+- `sample_id` in manifest must be a **neutral integer**, never the folder name
 
 ---
 
 ## 🔧 Current State
 
-- [x] SRS drafted  
-- [x] High-level architecture diagram completed  
-- [x] Legitimate website dataset collected (300 samples) ✅  
-- [x] Phishing dataset available (860 samples) ✅  
-- [x] Project folder structure created (`FEDrA/Dataset/...`)  
-- [ ] Python/ML environment not yet set up  
-- [ ] Datasets not yet merged or preprocessed  
-- [ ] Feature extraction pipeline not implemented  
-- [ ] Training pipeline not built  
-- [ ] Baseline model undecided  
+- [x] SRS drafted
+- [x] Architecture diagram completed
+- [x] Legitimate dataset collected (300 samples)
+- [x] Phishing dataset available (860 samples)
+- [x] Project folder structure created
+- [x] Python environment set up (`fedra` conda env)
+- [x] Git repo initialized → https://github.com/Gauthamkv14/FEDrA.git
+- [ ] `manifest.csv` not yet built
+- [ ] EDA not yet done
+- [ ] Feature extraction pipeline not implemented
+- [ ] Training pipeline not built
 
-➡️ **We are now at the threshold of implementation — environment setup is the immediate next step.**
+---
+
+## 🚀 Immediate Next Steps (Ordered)
+
+### ✅ Step 1 — Environment (DONE)
+```bash
+conda activate fedra
+# packages: pandas, numpy, scikit-learn, torch, torchvision,
+#           pillow, beautifulsoup4, shap, tqdm, jupyter
+```
+
+---
+
+### 🔲 Step 2 — Build manifest.csv
+**Script:** `scripts/build_manifest.py`
+
+What it must do:
+1. Walk `Dataset/legit_dataset/` → label = 0
+2. Walk `Dataset/phised_dataset/` → label = 1
+3. For each folder, read the `metadata` file to extract the URL string
+4. Assign a neutral integer `sample_id` (never use folder name)
+5. Record absolute paths to `page.html` and `screenshot`
+6. Save to `Dataset/manifest.csv`
+
+Output schema:
+```
+sample_id | label | url | html_path | screenshot_path
+0         | 0     | https://www.google.com | .../page.html | .../screenshot.png
+1         | 1     | https://...            | .../page.html | .../screenshot.png
+```
+
+**Agent task prompt:**
+> "Read CLAUDE.md Step 2. Write scripts/build_manifest.py that builds Dataset/manifest.csv.
+> Use folder names only as file paths. Extract URL from metadata file.
+> Assign neutral integer sample_ids. Test by printing first 5 rows and shape."
+
+---
+
+### 🔲 Step 3 — EDA
+**Notebook:** `notebooks/eda.ipynb`
+
+Must cover:
+- Class distribution (300 legit vs 860 phishing — ~74/26 imbalance)
+- Missing or corrupt files (missing HTML, broken screenshots)
+- URL length distribution per class
+- HTML file size distribution per class
+- Screenshot resolution consistency
+
+**Agent task prompt:**
+> "Read CLAUDE.md Step 3. Create notebooks/eda.ipynb that loads Dataset/manifest.csv
+> and performs EDA. Check class balance, missing files, URL lengths, HTML sizes,
+> screenshot resolutions. Save plots to notebooks/figures/."
+
+---
+
+### 🔲 Step 4 — Feature Schema (No code — decision needed)
+
+**URL Features:**
+- URL length, number of subdomains, presence of IP address
+- Use of HTTPS, number of special chars (`@`, `-`, `//`)
+- Domain token entropy, TLD type
+
+**HTML Features:**
+- Number of forms, inputs, iframes
+- Number of external links/scripts
+- Presence of password fields, meta redirects
+- Script-to-content ratio, favicon mismatch flag
+
+**Visual:** Raw screenshot → CNN encoder (no manual features)
+
+---
+
+### 🔲 Step 5 — Feature Extraction Pipeline
+Three scripts reading from `manifest.csv`, writing to `Dataset/features/`:
+
+| Script | Input | Output |
+|--------|-------|--------|
+| `extract_url_features.py` | URL string from manifest | `url_features.csv` |
+| `extract_html_features.py` | `page.html` via BeautifulSoup | `html_features.csv` |
+| `extract_visual_embeddings.py` | screenshot via frozen CNN | `visual_embeddings.npy` |
+
+**Agent task prompt:**
+> "Read CLAUDE.md Step 5. Write the three feature extraction scripts.
+> Use manifest.csv as input. Save outputs to Dataset/features/.
+> For visual embeddings use a frozen MobileNetV2 from torchvision."
+
+---
+
+### 🔲 Step 6 — Per-Modality Baseline
+Train and evaluate each modality independently before fusion:
+- URL-only MLP → Precision, Recall, F1, AUC
+- HTML-only MLP → same metrics
+- Image-only CNN → same metrics
+
+---
+
+### 🔲 Step 7 — Fusion Model
+Concatenate all three embeddings → MLP classifier → sigmoid output.
+
+---
+
+### 🔲 Step 8 — Zero-Day Evaluation
+Holdout set of unseen phishing URLs (post-collection) to test generalization.
+
+---
+
+### 🔲 Step 9 — Export
+Distill and export model to ONNX or TensorFlow.js for browser deployment.
+
+---
+
+## 🛠️ Unresolved Decisions
+
+| Item                        | Options                              | Priority |
+|-----------------------------|--------------------------------------|----------|
+| Handle class imbalance      | Weighted loss vs SMOTE vs oversample | High     |
+| Embedding dimensions        | 64 or 128-dim per modality           | Medium   |
+| Zero-day evaluation set     | Where to source recent phishing URLs | High     |
+| Browser inference backend   | TensorFlow.js vs ONNX Runtime Web    | Later    |
+| Performance thresholds      | Latency < 1s, Memory < 100MB?        | Later    |
+| Training framework          | PyTorch (recommended) vs sklearn     | High     |
 
 ---
 
@@ -95,199 +253,61 @@ FEDrA/
 - ❌ No external API calls during runtime
 - ❌ No DNS-based features in Phase-1
 - ❌ No cloud-based inference
-- ❌ Folder names must never be model features (bias/leakage risk)
-- ✅ Must support explainability (no black-box models)
-- ✅ Must detect zero-day threats (holdout unseen sites)
-- ✅ Lightweight enough for in-browser execution
-- ✅ Avoid overengineering — keep MVP lean
+- ❌ Folder names must never be model features
+- ✅ Explainability required (SHAP + Grad-CAM)
+- ✅ Zero-day detection capability
+- ✅ Lightweight for in-browser execution
+- ✅ Keep Phase-1 lean — no overengineering
 
 ---
 
-## 🚀 Immediate Next Steps (In Order)
+## 🌿 Git Workflow
 
-### Step 1 — Set Up Python Environment
+**Branches:**
+- `main` — stable, protected. Only updated via PR from `development`
+- `development` — active working branch for everyone
+
+**Everyone's daily workflow:**
 ```bash
-# Install Miniconda (recommended for ML projects)
-# Then create a dedicated environment:
-conda create -n fedra python=3.10
 conda activate fedra
-pip install pandas numpy scikit-learn torch torchvision pillow beautifulsoup4 shap tqdm jupyter
-```
-> Alternatives: plain `venv` + pip, or Google Colab for prototyping if local hardware is limited.
-
----
-
-### Step 2 — Build the Dataset Manifest (CSV Index)
-Write a script (`scripts/build_manifest.py`) that:
-1. Iterates over `legit_dataset/` → assigns `label = 0`
-2. Iterates over `phised_dataset/` → assigns `label = 1`
-3. For each sample folder, reads the **metadata file** to extract the URL string
-4. Records: `sample_id`, `label`, `url`, `html_path`, `screenshot_path`
-5. Outputs: `Dataset/manifest.csv`
-
-**Critical:** `sample_id` must be a neutral integer index — **never** the folder name.
-
-Expected output schema:
-```
-sample_id | label | url | html_path | screenshot_path
-0         | 0     | https://www.google.com | .../page.html | .../screenshot.png
-1         | 1     | https://... | .../page.html | .../screenshot.png
+git checkout development
+git pull origin development
+# ... do work ...
+git add .
+git commit -m "feat/fix/docs: describe what you did"
+git push origin development
 ```
 
----
+**Merging to main (only repo owner — @Gauthamkv14):**
+1. Go to https://github.com/Gauthamkv14/FEDrA/compare/main...development
+2. Open Pull Request
+3. Review changes
+4. Merge
 
-### Step 3 — Exploratory Data Analysis (EDA)
-Using `notebooks/eda.ipynb`:
-- Class distribution (how balanced is 300 vs 860?)
-- Check for missing/corrupt files (missing HTML, broken screenshots)
-- URL length distribution per class
-- HTML file size distribution per class
-- Screenshot resolution consistency
-
-> **Class imbalance note:** 860 phishing vs 300 legit (~74/26 split). Plan to use weighted loss or oversampling (SMOTE on features, or duplicate legit samples).
-
----
-
-### Step 4 — Define Feature Extraction Schema
-Before building the pipeline, lock in exactly what features are extracted per modality:
-
-**URL Features (from metadata, not folder name):**
-- URL length
-- Number of subdomains
-- Presence of IP address
-- Use of HTTPS
-- Number of special characters (`@`, `-`, `//`, etc.)
-- Domain token entropy
-- TLD type
-
-**HTML Features:**
-- Number of forms, inputs, iframes
-- Number of external links / scripts
-- Presence of password fields
-- Meta redirect presence
-- Script-to-content ratio
-- Favicon mismatch flag
-
-**Visual (Screenshot):**
-- Passed as raw image to CNN encoder
-- No manual feature engineering needed
-
----
-
-### Step 5 — Build Feature Extraction Pipeline
-Scripts to build:
-- `scripts/extract_url_features.py` → reads URL from metadata → outputs feature vector
-- `scripts/extract_html_features.py` → parses `page.html` via BeautifulSoup → outputs feature vector
-- `scripts/extract_visual_embeddings.py` → loads screenshot → passes through frozen pretrained CNN → outputs embedding
-
-All scripts read from `manifest.csv` and write to `Dataset/features/`:
-```
-Dataset/features/
-├── url_features.csv
-├── html_features.csv
-└── visual_embeddings.npy
-```
-
----
-
-### Step 6 — Train Baseline Models (Per Modality)
-Before fusion, validate each modality independently:
-- URL-only MLP → F1, AUC
-- HTML-only MLP → F1, AUC
-- Image-only CNN → F1, AUC
-
-This tells you which modality contributes most and catches bugs early.
-
----
-
-### Step 7 — Train Fusion Model
-Concatenate embeddings from all three modalities → feed into MLP classifier with sigmoid output.
-
----
-
-### Step 8 — Zero-Day Evaluation
-Hold out a set of **never-seen phishing URLs** (recent, post-collection) to test generalization beyond the training distribution.
+**Commit message conventions:**
+- `feat:` new feature or script
+- `fix:` bug fix
+- `docs:` CLAUDE.md or readme updates
+- `data:` dataset or manifest changes
+- `model:` training or evaluation changes
 
 ---
 
 ## 📦 Data Status
 
-| Dataset     | Samples | Folder Naming             | Label | Status       |
-|-------------|---------|---------------------------|-------|--------------|
-| Phishing    | 860     | `0001_<hash>.domain`      | 1     | ✅ Available |
-| Legitimate  | 300     | `www.domain.com`          | 0     | ✅ Available |
-| Combined    | 1,160   | Unified via manifest.csv  | —     | ❌ Pending   |
+| Dataset    | Samples | Folder Naming        | Label | Status       |
+|------------|---------|----------------------|-------|--------------|
+| Phishing   | 860     | `0001_<hash>.domain` | 1     | ✅ Available |
+| Legitimate | 300     | `www.domain.com`     | 0     | ✅ Available |
+| Combined   | 1,160   | Via manifest.csv     | —     | ❌ Pending   |
+
+**Class imbalance:** 74% phishing / 26% legit → must address before training.
 
 ---
 
-## 🛠️ Unresolved Technical Decisions
+## 🔮 Phase-2 (Out of Scope for Now)
 
-| Item                          | Options / Notes                              | Priority |
-|-------------------------------|----------------------------------------------|----------|
-| Handle class imbalance        | Weighted loss vs SMOTE vs oversample legit   | High     |
-| Embedding dimensions          | 64 or 128-dim per modality                   | Medium   |
-| Zero-day evaluation protocol  | Holdout set of post-collection phishing URLs | High     |
-| Inference backend (browser)   | TensorFlow.js vs ONNX Runtime Web            | Later    |
-| Performance thresholds        | Latency < 1s, Memory < 100MB?                | Later    |
-| Training framework            | PyTorch (recommended) vs sklearn             | High     |
-
----
-
-## ✅ Phase-1 Must-Haves
-
-- [ ] Python environment set up  
-- [ ] `manifest.csv` built (without folder names as features)  
-- [ ] EDA completed  
-- [ ] Feature schema finalized  
-- [ ] URL + HTML feature extraction scripts  
-- [ ] Visual embedding extractor  
-- [ ] Per-modality baseline evaluation  
-- [ ] Fusion classifier trained  
-- [ ] Explainability outputs (SHAP values, Grad-CAM heatmap)  
-- [ ] Evaluation: Precision, Recall, F1, AUC  
-- [ ] Model exported (ONNX or tfjs)  
-
-## 🔮 Phase-2 Nice-to-Haves
-
-- Federated learning for privacy-preserving updates  
-- DNS / SSL certificate analysis  
-- Active learning loop  
-- Infrastructure fingerprinting (CDN, hosting)  
-
----
-
-## 🔄 Runtime Flow (Browser Extension)
-
-1. User visits a site  
-2. Capture: URL, DOM tree, screenshot  
-3. Extract engineered features (structured)  
-4. Encode each modality → embeddings  
-5. Fuse → classify → sigmoid probability  
-6. Generate explanation (SHAP + Grad-CAM overlay)  
-7. Show warning if probability > threshold (e.g., 0.85)
-
----
-
-## 📌 Recommended Folder Structure (Going Forward)
-
-```
-FEDrA/
-├── CLAUDE.md
-├── Dataset/
-│   ├── legit_dataset/
-│   ├── phised_dataset/
-│   ├── manifest.csv            ← to be created in Step 2
-│   └── features/               ← to be created in Step 5
-│       ├── url_features.csv
-│       ├── html_features.csv
-│       └── visual_embeddings.npy
-├── notebooks/
-│   └── eda.ipynb
-├── scripts/
-│   ├── build_manifest.py
-│   ├── extract_url_features.py
-│   ├── extract_html_features.py
-│   └── extract_visual_embeddings.py
-├── models/
-└── extension/
-```
+- Federated learning for privacy-preserving updates
+- DNS / SSL certificate analysis
+- Active learning loop
+- Infrastructure fingerprinting (CDN, hosting)
