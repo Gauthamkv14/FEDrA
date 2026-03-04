@@ -119,7 +119,7 @@ FEDrA/
 - [x] Project folder structure created
 - [x] Python environment set up (`fedra` conda env)
 - [x] Git repo initialized → https://github.com/Gauthamkv14/FEDrA.git
-- [ ] `manifest.csv` not yet built
+- [x] `manifest.csv` built
 - [ ] EDA not yet done
 - [ ] Feature extraction pipeline not implemented
 - [ ] Training pipeline not built
@@ -166,8 +166,9 @@ sample_id | label | url | html_path | screenshot_path
 **Notebook:** `notebooks/eda.ipynb`
 
 Must cover:
-- Class distribution (300 legit vs 860 phishing — ~74/26 imbalance)
+- Class distribution (340 legit vs 650 phishing — ~66/34 imbalance)
 - Missing or corrupt files (missing HTML, broken screenshots)
+- Do manage the imbalance
 - URL length distribution per class
 - HTML file size distribution per class
 - Screenshot resolution consistency
@@ -185,12 +186,18 @@ Must cover:
 - URL length, number of subdomains, presence of IP address
 - Use of HTTPS, number of special chars (`@`, `-`, `//`)
 - Domain token entropy, TLD type
+- Count of URL parameters
+- Presence of suspicious parameters (login, redirect, verify, secure)
 
 **HTML Features:**
 - Number of forms, inputs, iframes
 - Number of external links/scripts
 - Presence of password fields, meta redirects
 - Script-to-content ratio, favicon mismatch flag
+- Number of external script tags
+- Presence of auto-submission forms
+- Ratio of input fields to submit buttons
+- Number of unique external domains linked
 
 **Visual:** Raw screenshot → CNN encoder (no manual features)
 
