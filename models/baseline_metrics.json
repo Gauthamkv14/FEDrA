@@ -1,0 +1,23 @@
+{
+  "url": {
+    "Accuracy": 0.9798,
+    "Precision": 0.9922,
+    "Recall": 0.9769,
+    "F1": 0.9845,
+    "AUC": 0.9964
+  },
+  "html": {
+    "Accuracy": 0.8485,
+    "Precision": 0.8788,
+    "Recall": 0.8923,
+    "F1": 0.8855,
+    "AUC": 0.8649
+  },
+  "image": {
+    "Accuracy": 0.7727,
+    "Precision": 0.84,
+    "Recall": 0.8077,
+    "F1": 0.8235,
+    "AUC": 0.8196
+  }
+}
