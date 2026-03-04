@@ -608,31 +608,19 @@ def main():
     )
 
     # ── 6. Print report ────────────────────────────────────────────────────
-    print(f"\n{_BAR}")
-    print(f"  {'MODEL':<12}  {'PROB (phishing)':>17}   LABEL")
-    print(f"  {'-' * 61}")
+    print("\nPrints prediction probability from each model separately:")
+    
+    def _get_prob_str(res):
+        if res is None or "error" in res:
+            return "N/A"
+        return f"{res['phishing_prob']:.2f}%"
 
-    print(_fmt_row("URL",    url_result))
+    print(f"   - URL model prediction: {_get_prob_str(url_result)}")
+    print(f"   - HTML model prediction: {_get_prob_str(html_result)}")
+    print(f"   - Visual model prediction: {_get_prob_str(vis_result)}")
 
-    if fetch.available:
-        print(_fmt_row("HTML",   html_result))
-        print(_fmt_row("Visual", vis_result))
-    else:
-        unavail = {
-            "unresolvable": "domain not found",
-            "ssl":          "SSL error",
-            "refused":      "connection refused",
-            "timeout":      "timed out",
-            "other":        "fetch failed",
-        }.get(fetch.error_type, "UNAVAILABLE")
-        print(_fmt_row("HTML",   None, unavail))
-        print(_fmt_row("Visual", None, unavail))
-
-    print(_fmt_domain_row(domain_resolved, fetch.error_type))
-
-    print(f"\n  {'-' * 61}")
-    print(f"  Final verdict → {verdict}")
-    print(f"  Confidence    → {confidence}")
+    print(f"\nFinal label: {'PHISHING' if 'PHISHING' in verdict else 'LEGITIMATE'}")
+    print(f"Confidence: {confidence}")
     print(f"{_BAR}\n")
 
     # Cleanup temp screenshot
