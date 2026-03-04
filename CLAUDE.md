@@ -123,8 +123,8 @@ FEDrA/
 - [x] Git repo initialized → https://github.com/Gauthamkv14/FEDrA.git
 - [x] `manifest.csv` built
 - [ ] EDA not yet done
-- [ ] Feature extraction pipeline not implemented
-- [ ] Training pipeline not built
+- [x] Feature extraction pipeline implemented
+- [x] Training pipeline baselines trained and single URL inference working
 
 ---
 
@@ -205,7 +205,7 @@ Must cover:
 
 ---
 
-### 🔲 Step 5 — Feature Extraction Pipeline
+### ✅ Step 5 — Feature Extraction Pipeline (DONE)
 Three scripts reading from `manifest.csv`, writing to `Dataset/features/`:
 
 | Script | Input | Output |
@@ -221,11 +221,13 @@ Three scripts reading from `manifest.csv`, writing to `Dataset/features/`:
 
 ---
 
-### 🔲 Step 6 — Per-Modality Baseline
+### ✅ Step 6 — Per-Modality Baseline & Inference Testing (DONE)
 Train and evaluate each modality independently before fusion:
 - URL-only MLP → Precision, Recall, F1, AUC
 - HTML-only MLP → same metrics
 - Image-only CNN → same metrics
+
+Tested using inference script `scripts/test_single_url.py` which loads all 3 `.pkl` baseline models.
 
 ---
 
