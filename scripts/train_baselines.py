@@ -8,6 +8,8 @@ Trains three separate baseline models (URL-only, HTML-only, Image-only).
 - Address class imbalance using class_weight='balanced'
 - Reports Precision, Recall, F1, AUC
 - Saves trained models to models/ folder using sklearn/joblib
+
+NOTE: Models saved with joblib.dump() — always load with joblib.load()
 """
 
 import os
@@ -61,6 +63,7 @@ def evaluate_and_save(clf, X_train, X_test, y_train, y_test, scaler, name):
     }
     
     # Save Model + Scaler together
+    # NOTE: Models saved with joblib.dump() — always load with joblib.load()
     model_path = os.path.join(MODELS_DIR, f"{name}_baseline.pkl")
     joblib.dump({"model": clf, "scaler": scaler}, model_path)
     print(f"[{name.upper()}] Acc: {acc:.4f} F1: {f1:.4f} AUC: {auc:.4f} -> {model_path}")
