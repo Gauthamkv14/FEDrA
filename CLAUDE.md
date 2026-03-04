@@ -19,6 +19,8 @@ This file is the single source of truth for the AI agent working on this project
 - **Read this file fully** before starting any task
 - **One task at a time** — complete and test before moving to next
 - **Never delete dataset folders** — treat `Dataset/` as read-only raw data
+- **All models are saved and loaded using joblib (not pickle).**
+- **Always use joblib.dump() to save and joblib.load() to load .pkl files.**
 
 ### How to Run Tasks
 Agent should follow this pattern for every task:
