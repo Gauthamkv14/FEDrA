@@ -12,6 +12,12 @@
 
 This file is the single source of truth for the AI agent working on this project.
 
+**Python path varies by OS:**
+- Windows: `C:\Users\YourName\anaconda3\envs\fedra\python.exe`
+- Mac/Linux: `/opt/anaconda3/envs/fedra/bin/python`
+- Find your exact path by running: `where python` (Windows) or `which python` (Mac/Linux)
+- Always replace the python path in commands with your own.
+
 ### Ground Rules for Agent
 - **Never use folder names as features** — label leakage risk (see Dataset Notes)
 - **Always work on `development` branch** — never commit to `main`
@@ -21,6 +27,12 @@ This file is the single source of truth for the AI agent working on this project
 - **Never delete dataset folders** — treat `Dataset/` as read-only raw data
 - **All models are saved and loaded using joblib (not pickle).**
 - **Always use joblib.dump() to save and joblib.load() to load .pkl files.**
+- **After completing ANY step, always update CLAUDE.md:**
+  - Mark the step as `[x]` complete in Current State section
+  - Add date and brief result summary next to the completed step
+  - Example: `- [x] Step 5 complete (2026-03-03) — 990 samples, 0 NaN values`
+  - Then commit CLAUDE.md together with the step's code in the same git commit
+  - This keeps CLAUDE.md as a live project log, not just a static plan
 
 ### How to Run Tasks
 Agent should follow this pattern for every task:
