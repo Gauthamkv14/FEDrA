@@ -91,9 +91,14 @@ document.addEventListener("DOMContentLoaded", function () {
     // ── Main: get active tab then read storage ────────────────────────────
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         var currentUrl = (tabs && tabs[0]) ? (tabs[0].url || '') : '';
-        var currentHost = safeHost(currentUrl);
-        var container = document.getElementById('container');
         console.log("FEDrA popup: current tab", currentUrl);
+
+        // If current tab is a chrome error page, show last result anyway
+        var isErrorPage = currentUrl.startsWith("chrome-error://") ||
+            currentUrl.startsWith("chrome://") ||
+            currentUrl === "";
+
+        var container = document.getElementById('container');
 
         chrome.storage.local.get('last_result', function (data) {
             var result = data.last_result;
@@ -111,29 +116,46 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            // Match result hostname to current tab hostname
+            // For error pages, just show whatever last result we have
+            if (isErrorPage) {
+                renderResult(result, container);
+                return;
+            }
+
+            // Normal pages — match hostname
             var resultHost = safeHost(result.scanned_url || result.url || '');
+            var currentHost = safeHost(currentUrl);
+
             console.log("FEDrA popup: resultHost", resultHost);
             console.log("FEDrA popup: currentHost", currentHost);
             console.log("FEDrA popup: hosts match?", resultHost === currentHost);
 
-            if (currentHost && resultHost && resultHost !== currentHost) {
-                // Result is from a different page — show scanning
-                container.innerHTML = renderScanning();
-                return;
-            }
-
-            // Render by result type
-            if (result.dead_site) {
-                container.innerHTML = renderDead(result);
-                attachEscapeButton();
-            } else if (result.prediction === 'PHISHING') {
-                container.innerHTML = renderPhishing(result);
+            if (resultHost === currentHost) {
+                renderResult(result, container);
             } else {
-                container.innerHTML = renderLegit(result);
+                container.innerHTML = renderScanning();
             }
         });
     });
+
+    // Single render function that picks correct state
+    function renderResult(result, container) {
+        if (result.dead_site) {
+            container.innerHTML = renderDead(result);
+            var btn = document.getElementById("btn-escape");
+            if (btn) {
+                btn.addEventListener("click", function () {
+                    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+                        if (tabs && tabs[0]) chrome.tabs.update(tabs[0].id, { url: "https://www.google.com" });
+                    });
+                });
+            }
+        } else if (result.prediction === "PHISHING") {
+            container.innerHTML = renderPhishing(result);
+        } else {
+            container.innerHTML = renderLegit(result);
+        }
+    }
 
     // Auto-refresh every 3 seconds by reloading the popup document
     setTimeout(function () { location.reload(); }, 3000);

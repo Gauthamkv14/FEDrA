@@ -75,5 +75,75 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
             });
         });
 
-    return true; // Keep message channel open for async response
+});
+
+// ── NEW: Detect when a tab fails to load (dead/unreachable site) ────────
+chrome.webNavigation.onErrorOccurred.addListener(function (details) {
+    // Only main frame, not iframes
+    if (details.frameId !== 0) return;
+
+    var url = details.url || "";
+    if (url.startsWith("chrome://") ||
+        url.startsWith("chrome-extension://") ||
+        url.startsWith("about:")) return;
+
+    console.log("FEDrA: navigation error for", url, details.error);
+
+    // Call API with URL only (no HTML since page never loaded)
+    fetch("http://localhost:5000/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url })
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (result) {
+            result.scanned_url = url;
+            result.dead_site = true;
+            result.prediction = "PHISHING";
+            result.risk_level = "HIGH";
+            if (!result.reasons) result.reasons = [];
+            result.reasons.unshift(
+                "Site is unreachable — taken down after phishing activity",
+                "DNS failed: " + details.error
+            );
+
+            console.log("FEDrA: storing dead site result", result);
+            chrome.storage.local.set({ last_result: result });
+
+            // Notification
+            chrome.notifications.create({
+                type: "basic",
+                iconUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+                title: "💀 Dangerous Site Detected",
+                message: "This site is unreachable and matches phishing patterns.",
+                priority: 2
+            });
+        })
+        .catch(function (err) {
+            console.log("FEDrA: API error for dead site", err);
+            // Even without API — store as dangerous based on URL alone
+            var offlineResult = {
+                scanned_url: url,
+                prediction: "PHISHING",
+                phishing_probability: 95.0,
+                risk_level: "HIGH",
+                dead_site: true,
+                reasons: [
+                    "Site is unreachable — taken down after phishing activity",
+                    "DNS resolution failed: " + details.error,
+                    "Legitimate sites rarely go offline this way"
+                ],
+                mode: "URL pattern (site unreachable)",
+                latency_s: 0
+            };
+            chrome.storage.local.set({ last_result: offlineResult });
+
+            chrome.notifications.create({
+                type: "basic",
+                iconUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+                title: "💀 Dangerous Site Detected",
+                message: "This site is unreachable and matches phishing patterns.",
+                priority: 2
+            });
+        });
 });

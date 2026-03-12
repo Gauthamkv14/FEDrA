@@ -1,7 +1,7 @@
 # FEDrA – Project Context (Phase-1)
-**Last Updated:** 2026-03-03
+**Last Updated:** 2026-03-08
 **Repo:** https://github.com/Gauthamkv14/FEDrA.git
-**Status:** Environment Ready → Dataset Pipeline Next
+**Status:** Zero-Day Evaluation Done → Flask API + Web UI Next
 
 > **FEDrA** = **FE**derated **D**etection of **Ra**nsomware & Phishing
 > Phase-1 Goal: Explainable, multimodal browser extension for real-time zero-day phishing detection.
@@ -12,12 +12,6 @@
 
 This file is the single source of truth for the AI agent working on this project.
 
-**Python path varies by OS:**
-- Windows: `C:\Users\YourName\anaconda3\envs\fedra\python.exe`
-- Mac/Linux: `/opt/anaconda3/envs/fedra/bin/python`
-- Find your exact path by running: `where python` (Windows) or `which python` (Mac/Linux)
-- Always replace the python path in commands with your own.
-
 ### Ground Rules for Agent
 - **Never use folder names as features** — label leakage risk (see Dataset Notes)
 - **Always work on `development` branch** — never commit to `main`
@@ -27,12 +21,6 @@ This file is the single source of truth for the AI agent working on this project
 - **Never delete dataset folders** — treat `Dataset/` as read-only raw data
 - **All models are saved and loaded using joblib (not pickle).**
 - **Always use joblib.dump() to save and joblib.load() to load .pkl files.**
-- **After completing ANY step, always update CLAUDE.md:**
-  - Mark the step as `[x]` complete in Current State section
-  - Add date and brief result summary next to the completed step
-  - Example: `- [x] Step 5 complete (2026-03-03) — 990 samples, 0 NaN values`
-  - Then commit CLAUDE.md together with the step's code in the same git commit
-  - This keeps CLAUDE.md as a live project log, not just a static plan
 
 ### How to Run Tasks
 Agent should follow this pattern for every task:
@@ -85,30 +73,44 @@ FEDrA/
 ├── .gitignore
 ├── legitamate.py                    ← legit dataset collection script
 ├── Dataset/
-│   ├── legit_dataset/               # 300 folders, named by domain (www.google.com)
+│   ├── legit_dataset/               # 340 folders, named by domain (www.google.com)
 │   │   └── <domain>/
 │   │       ├── metadata             # contains the actual URL string
 │   │       ├── page.html
 │   │       └── screenshot
-│   ├── phised_dataset/              # 860 folders, named by hash ID (0002_bafybei...link)
+│   ├── phised_dataset/              # 650 folders, named by hash ID (0002_bafybei...link)
 │   │   └── <id>/
 │   │       ├── metadata
 │   │       ├── page.html
 │   │       └── screenshot
-│   ├── manifest.csv                 ← TO BE CREATED (Step 2)
-│   └── features/                   ← TO BE CREATED (Step 5)
+│   ├── manifest.csv                 ← DONE (Step 2)
+│   └── features/                   ← DONE (Step 5)
 │       ├── url_features.csv
 │       ├── html_features.csv
 │       └── visual_embeddings.npy
 ├── notebooks/
-│   └── eda.ipynb                   ← TO BE CREATED (Step 3)
+│   ├── eda.ipynb                   ← DONE (Step 3)
+│   └── zero_day_results.csv        ← DONE (Step 8)
 ├── scripts/
-│   ├── build_manifest.py           ← TO BE CREATED (Step 2)
-│   ├── extract_url_features.py     ← TO BE CREATED (Step 5)
-│   ├── extract_html_features.py    ← TO BE CREATED (Step 5)
-│   └── extract_visual_embeddings.py← TO BE CREATED (Step 5)
-├── models/                         ← TO BE CREATED later
-└── extension/                      ← TO BE CREATED later
+│   ├── build_manifest.py
+│   ├── extract_url_features.py
+│   ├── extract_html_features.py
+│   ├── extract_visual_embeddings.py
+│   ├── train_baselines.py          ← Step 6
+│   ├── train_fusion.py             ← Step 7
+│   ├── test_single_url.py          ← Step 6 inference
+│   ├── test_fusion.py              ← Step 7 inference
+│   ├── zero_day_eval.py            ← Step 8
+│   └── api_server.py               ← Step 9 (Flask API)
+├── models/
+│   ├── url_baseline.pkl
+│   ├── html_baseline.pkl
+│   ├── image_baseline.pkl
+│   ├── fusion_model.pkl
+│   ├── baseline_metrics.json
+│   └── fusion_metrics.json
+└── extension/
+    └── index.html                  ← Web UI
 ```
 
 ---
@@ -128,15 +130,19 @@ FEDrA/
 
 - [x] SRS drafted
 - [x] Architecture diagram completed
-- [x] Legitimate dataset collected (300 samples)
-- [x] Phishing dataset available (860 samples)
+- [x] Legitimate dataset collected (340 samples)
+- [x] Phishing dataset available (650 samples)
 - [x] Project folder structure created
 - [x] Python environment set up (`fedra` conda env)
 - [x] Git repo initialized → https://github.com/Gauthamkv14/FEDrA.git
 - [x] `manifest.csv` built
-- [ ] EDA not yet done
+- [x] EDA completed
 - [x] Feature extraction pipeline implemented
 - [x] Training pipeline baselines trained and single URL inference working
+- [x] Fusion model trained and inference script implemented
+- [x] Zero-day evaluation complete (2026-03-08) — 25 OpenPhish URLs, 60% detection, 5.71s avg latency
+- [x] Extension framework rewritten and debug logging added (2026-03-12)
+- [x] Implemented dead site detection using `webNavigation.onErrorOccurred` (2026-03-12)
 
 ---
 
@@ -146,51 +152,23 @@ FEDrA/
 ```bash
 conda activate fedra
 # packages: pandas, numpy, scikit-learn, torch, torchvision,
-#           pillow, beautifulsoup4, shap, tqdm, jupyter
+#           pillow, beautifulsoup4, shap, tqdm, jupyter, flask, flask-cors
 ```
 
 ---
 
-### 🔲 Step 2 — Build manifest.csv
+### ✅ Step 2 — Build manifest.csv (DONE)
 **Script:** `scripts/build_manifest.py`
-
-What it must do:
-1. Walk `Dataset/legit_dataset/` → label = 0
-2. Walk `Dataset/phised_dataset/` → label = 1
-3. For each folder, read the `metadata` file to extract the URL string
-4. Assign a neutral integer `sample_id` (never use folder name)
-5. Record absolute paths to `page.html` and `screenshot`
-6. Save to `Dataset/manifest.csv`
 
 Output schema:
 ```
 sample_id | label | url | html_path | screenshot_path
-0         | 0     | https://www.google.com | .../page.html | .../screenshot.png
-1         | 1     | https://...            | .../page.html | .../screenshot.png
 ```
-
-**Agent task prompt:**
-> "Read CLAUDE.md Step 2. Write scripts/build_manifest.py that builds Dataset/manifest.csv.
-> Use folder names only as file paths. Extract URL from metadata file.
-> Assign neutral integer sample_ids. Test by printing first 5 rows and shape."
 
 ---
 
-### 🔲 Step 3 — EDA
+### ✅ Step 3 — EDA (DONE)
 **Notebook:** `notebooks/eda.ipynb`
-
-Must cover:
-- Class distribution (340 legit vs 650 phishing — ~66/34 imbalance)
-- Missing or corrupt files (missing HTML, broken screenshots)
-- Do manage the imbalance
-- URL length distribution per class
-- HTML file size distribution per class
-- Screenshot resolution consistency
-
-**Agent task prompt:**
-> "Read CLAUDE.md Step 3. Create notebooks/eda.ipynb that loads Dataset/manifest.csv
-> and performs EDA. Check class balance, missing files, URL lengths, HTML sizes,
-> screenshot resolutions. Save plots to notebooks/figures/."
 
 ---
 
@@ -226,11 +204,6 @@ Three scripts reading from `manifest.csv`, writing to `Dataset/features/`:
 | `extract_html_features.py` | `page.html` via BeautifulSoup | `html_features.csv` |
 | `extract_visual_embeddings.py` | screenshot via frozen CNN | `visual_embeddings.npy` |
 
-**Agent task prompt:**
-> "Read CLAUDE.md Step 5. Write the three feature extraction scripts.
-> Use manifest.csv as input. Save outputs to Dataset/features/.
-> For visual embeddings use a frozen MobileNetV2 from torchvision."
-
 ---
 
 ### ✅ Step 6 — Per-Modality Baseline & Inference Testing (DONE)
@@ -243,17 +216,36 @@ Tested using inference script `scripts/test_single_url.py` which loads all 3 `.p
 
 ---
 
-### 🔲 Step 7 — Fusion Model
+### ✅ Step 7 — Fusion Model (DONE)
 Concatenate all three embeddings → MLP classifier → sigmoid output.
 
+**Scripts:** `scripts/train_fusion.py` (training), `scripts/test_fusion.py` (inference)
+**Model:** `models/fusion_model.pkl`
+
+Fusion metrics (198 test samples):
+- Precision: 0.9219 | Recall: 0.9077 | F1: 0.9147 | AUC: 0.9292
+
 ---
 
-### 🔲 Step 8 — Zero-Day Evaluation
-Holdout set of unseen phishing URLs (post-collection) to test generalization.
+### ✅ Step 8 — Zero-Day Evaluation (DONE 2026-03-08)
+25 live URLs from OpenPhish feed:
+- Detection rate: 60% (15/25)
+- Avg latency: 5.71s/URL
+- Results: `notebooks/zero_day_results.csv`
 
 ---
 
-### 🔲 Step 9 — Export
+### 🔲 Step 9 — Flask API + Web UI
+**Scripts:** `scripts/api_server.py` + `extension/index.html`
+
+- Flask backend: POST /analyze → JSON response with prediction + reasons
+- Standalone HTML frontend with dark cybersecurity theme
+- Run server: `/opt/anaconda3/envs/fedra/bin/python scripts/api_server.py`
+- Open: `extension/index.html` in Chrome
+
+---
+
+### 🔲 Step 10 — Export
 Distill and export model to ONNX or TensorFlow.js for browser deployment.
 
 ---
@@ -264,10 +256,8 @@ Distill and export model to ONNX or TensorFlow.js for browser deployment.
 |-----------------------------|--------------------------------------|----------|
 | Handle class imbalance      | Weighted loss vs SMOTE vs oversample | High     |
 | Embedding dimensions        | 64 or 128-dim per modality           | Medium   |
-| Zero-day evaluation set     | Where to source recent phishing URLs | High     |
 | Browser inference backend   | TensorFlow.js vs ONNX Runtime Web    | Later    |
 | Performance thresholds      | Latency < 1s, Memory < 100MB?        | Later    |
-| Training framework          | PyTorch (recommended) vs sklearn     | High     |
 
 ---
 
@@ -320,11 +310,11 @@ git push origin development
 
 | Dataset    | Samples | Folder Naming        | Label | Status       |
 |------------|---------|----------------------|-------|--------------|
-| Phishing   | 860     | `0001_<hash>.domain` | 1     | ✅ Available |
-| Legitimate | 300     | `www.domain.com`     | 0     | ✅ Available |
-| Combined   | 1,160   | Via manifest.csv     | —     | ❌ Pending   |
+| Phishing   | 650     | `0001_<hash>.domain` | 1     | ✅ Available |
+| Legitimate | 340     | `www.domain.com`     | 0     | ✅ Available |
+| Combined   | 990     | Via manifest.csv     | —     | ✅ Available |
 
-**Class imbalance:** 74% phishing / 26% legit → must address before training.
+**Class imbalance:** 66% phishing / 34% legit → addressed via class weighting in training.
 
 ---
 
