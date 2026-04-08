@@ -1,0 +1,26 @@
+url,true_label,predicted_label,phishing_prob_%,prediction,correct,mode,dns_resolved,page_loaded,latency_s
+https://insta-clone-application.vercel.app/,PHISHING,PHISHING,99.26,1,1,Fusion MLP,True,True,6.65
+https://insta-clone-application.vercel.app/auth/login,PHISHING,PHISHING,99.47,1,1,Fusion MLP,True,True,2.2
+https://roblox.com.ge/games/16146832113/UPD-11-Anime-Vanguards?privateServerLinkCode=70868005475466543045084535414192,PHISHING,PHISHING,98.18,1,1,Fusion MLP,True,True,8.84
+https://center.verificationsupportmetaidentity.cfd/requestbadgeconfirm-100019012357,PHISHING,PHISHING,100.0,1,1,URL-only (fallback),False,False,0.92
+https://www.robiox.com.ps/games/8832438757/PVP-Sword-Fighting?privateServerLinkCode=78903422417323090225937144668524,PHISHING,PHISHING,99.73,1,1,Fusion MLP,True,True,8.93
+https://ramyalok.github.io/Netflix-_clone_webpage,PHISHING,PHISHING,84.15,1,1,Fusion MLP,True,True,10.54
+https://www.robiox.com.py/users/407577980778/profile,PHISHING,LEGITIMATE,2.13,0,0,Fusion MLP,True,True,7.51
+https://amh012-hu.github.io/Fake-Page/,PHISHING,LEGITIMATE,43.16,0,0,Fusion MLP,True,True,3.88
+http://americanexpress.karenjeanna.shop/index/co.jp/,PHISHING,PHISHING,97.49,1,1,Fusion MLP,True,True,2.71
+http://americanexpress.karenjeanna.shop/index/co.jp,PHISHING,PHISHING,97.4,1,1,Fusion MLP,True,True,2.23
+https://ajukan-pinjamanxc.lingmung.my.id/,PHISHING,LEGITIMATE,6.47,0,0,Fusion MLP,True,True,5.5
+http://regirter.github.io/facebook.login,PHISHING,PHISHING,100.0,1,1,Fusion MLP,True,True,2.86
+https://www.robiox.com.py/users/283847205803/profile,PHISHING,PHISHING,89.74,1,1,Fusion MLP,True,True,5.85
+https://login.facebo0k.legal-lead-hub.com/,PHISHING,LEGITIMATE,6.19,0,0,Fusion MLP,True,True,3.97
+https://roblox.com.ge/users/3000738582/profile,PHISHING,LEGITIMATE,0.12,0,0,Fusion MLP,True,True,7.65
+https://roblox.com.ge/users/5207395189/profile,PHISHING,LEGITIMATE,0.12,0,0,Fusion MLP,True,True,8.98
+https://roblox.com.py/communities/9435567504/,PHISHING,PHISHING,93.21,1,1,URL-only (fallback),True,False,13.5
+https://roblox.com.ge/users/9018258961/profile,PHISHING,LEGITIMATE,0.33,0,0,Fusion MLP,True,True,6.23
+https://roblox.cd/upgrades/robux?ctx=navpopover,PHISHING,PHISHING,84.88,1,1,Fusion MLP,True,True,12.43
+http://valerieann1990.wixsite.com/my-site/,PHISHING,PHISHING,95.63,1,1,Fusion MLP,True,True,5.63
+https://pub-a784a4448830415985f7222bc95939a1.r2.dev/index.html,PHISHING,LEGITIMATE,2.12,0,0,Fusion MLP,True,True,4.95
+https://bafkreieom7wda46qcf4vncqryfpzbkb5wv4cnqj54bohacy36x6jbx22z4.ipfs.dweb.link/,PHISHING,PHISHING,100.0,1,1,URL-only (fallback),False,False,0.8
+http://bafkreihtlhkdasz5jjzhh2ofsk6ey2a5sy26lsst2uhqeqem6atapbn4py.ipfs.dweb.link/,PHISHING,PHISHING,100.0,1,1,URL-only (fallback),False,False,0.82
+http://pub-8c1c14c3b0d64d0099312bb4670f2e23.r2.dev/hjokedd.html,PHISHING,LEGITIMATE,25.16,0,0,Fusion MLP,True,True,5.39
+http://pub-a77375725cbe4ebebbbb725baa062262.r2.dev/aw.html,PHISHING,LEGITIMATE,26.98,0,0,Fusion MLP,True,True,3.72
