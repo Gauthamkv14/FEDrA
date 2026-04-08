@@ -1,7 +1,7 @@
 # FEDrA – Project Context (Phase-1)
 **Last Updated:** 2026-03-03
 **Repo:** https://github.com/Gauthamkv14/FEDrA.git
-**Status:** Environment Ready → Dataset Pipeline Next
+**Status:** Fusion Model Trained → Zero-Day Evaluation Next
 
 > **FEDrA** = **FE**derated **D**etection of **Ra**nsomware & Phishing
 > Phase-1 Goal: Explainable, multimodal browser extension for real-time zero-day phishing detection.
@@ -122,9 +122,10 @@ FEDrA/
 - [x] Python environment set up (`fedra` conda env)
 - [x] Git repo initialized → https://github.com/Gauthamkv14/FEDrA.git
 - [x] `manifest.csv` built
-- [ ] EDA not yet done
+- [x] EDA completed
 - [x] Feature extraction pipeline implemented
 - [x] Training pipeline baselines trained and single URL inference working
+- [x] Fusion model trained and inference script implemented
 
 ---
 
@@ -139,7 +140,7 @@ conda activate fedra
 
 ---
 
-### 🔲 Step 2 — Build manifest.csv
+### ✅ Step 2 — Build manifest.csv (DONE)
 **Script:** `scripts/build_manifest.py`
 
 What it must do:
@@ -164,7 +165,7 @@ sample_id | label | url | html_path | screenshot_path
 
 ---
 
-### 🔲 Step 3 — EDA
+### ✅ Step 3 — EDA (DONE)
 **Notebook:** `notebooks/eda.ipynb`
 
 Must cover:
@@ -231,7 +232,7 @@ Tested using inference script `scripts/test_single_url.py` which loads all 3 `.p
 
 ---
 
-### 🔲 Step 7 — Fusion Model
+### ✅ Step 7 — Fusion Model (DONE)
 Concatenate all three embeddings → MLP classifier → sigmoid output.
 
 ---
@@ -308,11 +309,11 @@ git push origin development
 
 | Dataset    | Samples | Folder Naming        | Label | Status       |
 |------------|---------|----------------------|-------|--------------|
-| Phishing   | 860     | `0001_<hash>.domain` | 1     | ✅ Available |
-| Legitimate | 300     | `www.domain.com`     | 0     | ✅ Available |
-| Combined   | 1,160   | Via manifest.csv     | —     | ❌ Pending   |
+| Phishing   | 650     | `0001_<hash>.domain` | 1     | ✅ Available |
+| Legitimate | 340     | `www.domain.com`     | 0     | ✅ Available |
+| Combined   | 990     | Via manifest.csv     | —     | ✅ Available |
 
-**Class imbalance:** 74% phishing / 26% legit → must address before training.
+**Class imbalance:** 66% phishing / 34% legit → addressed via class weighting in training.
 
 ---
 
