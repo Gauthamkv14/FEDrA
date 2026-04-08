@@ -11,16 +11,16 @@ Real-time, client-side, explainable multimodal browser extension for zero-day ph
 ---
 
 ## 📖 Table of Contents
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Project Structure](#project-structure)
-- [Setup Instructions](#setup-instructions)
-- [How to Run](#how-to-run)
-- [Model Performance](#model-performance)
-- [Dataset](#dataset)
-- [Tech Stack](#tech-stack)
-- [Team](#team)
-- [License](#license)
+- [Overview](#-overview)
+- [Architecture](#-architecture)
+- [Project Structure](#-project-structure)
+- [Setup Instructions](#-setup-instructions)
+- [How to Run](#-how-to-run)
+- [Model Performance](#-model-performance)
+- [Dataset](#-dataset)
+- [Tech Stack](#-tech-stack)
+- [Team](#-team)
+- [License](#-license)
 
 ---
 
@@ -152,10 +152,10 @@ The project utilizes a combined dataset of **990 samples**:
 
 ## 👥 Team
 - **Gautham K V** (@Gauthamkv14)
-- [Team Member Name]
-- [Team Member Name]
-
+- **Gauri S**(@gauris8)
+- **A Soundara Lahari**(@sounds034)
+- **Bharath Kumar B D**(@BharathKumarBD)
 ---
 
 ## 📜 License
-This project is licensed under the **MIT License** - see the LICENSE file for details.
+This project is licensed under the **MIT License** 
