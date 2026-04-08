@@ -1,7 +1,11 @@
 # FEDrA – Project Context (Phase-1)
 **Last Updated:** 2026-03-08
 **Repo:** https://github.com/Gauthamkv14/FEDrA.git
+<<<<<<< HEAD
+**Status:** Fusion Model Trained → Zero-Day Evaluation Next
+=======
 **Status:** Zero-Day Evaluation Done → Flask API + Web UI Next
+>>>>>>> 454514fdba9122376486f30cbaa7a3958536d716
 
 > **FEDrA** = **FE**derated **D**etection of **Ra**nsomware & Phishing
 > Phase-1 Goal: Explainable, multimodal browser extension for real-time zero-day phishing detection.
@@ -140,9 +144,12 @@ FEDrA/
 - [x] Feature extraction pipeline implemented
 - [x] Training pipeline baselines trained and single URL inference working
 - [x] Fusion model trained and inference script implemented
+<<<<<<< HEAD
+=======
 - [x] Zero-day evaluation complete (2026-03-08) — 25 OpenPhish URLs, 60% detection, 5.71s avg latency
 - [x] Extension framework rewritten and debug logging added (2026-03-12)
 - [x] Implemented dead site detection using `webNavigation.onErrorOccurred` (2026-03-12)
+>>>>>>> 454514fdba9122376486f30cbaa7a3958536d716
 
 ---
 
