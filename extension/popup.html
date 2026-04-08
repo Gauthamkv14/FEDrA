@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>FEDrA</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;600;700&display=swap');
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #10101a;
+            --border: #1e2a3a;
+            --phishing: #ff3333;
+            --safe: #00cc66;
+            --dead: #8b0000;
+            --warn: #ff9900;
+            --text: #e0e0e0;
+            --sub: #888;
+            --mono: 'Share Tech Mono', monospace;
+            --sans: 'Inter', system-ui, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            width: 380px;
+            min-height: 80px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+        }
+
+        /* ── Header ─────────────────────────────────────────── */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header-icon {
+            font-size: 1.2rem;
+        }
+
+        .header-name {
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            background: linear-gradient(120deg, #00d4ff, #a0cfff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-sub {
+            font-size: 0.63rem;
+            color: var(--sub);
+            margin-top: 1px;
+        }
+
+        /* ── Container ───────────────────────────────────────── */
+        #container {
+            padding: 14px;
+        }
+
+        /* ── States ──────────────────────────────────────────── */
+        .state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 6px;
+        }
+
+        /* Scanning */
+        .scanning {
+            padding: 22px 0;
+        }
+
+        .scan-icon {
+            font-size: 2rem;
+            animation: pulse 1.2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .4
+            }
+        }
+
+        .scan-text {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        .scan-sub {
+            font-size: 0.72rem;
+            color: var(--sub);
+        }
+
+        /* Offline */
+        .offline .icon {
+            font-size: 2rem;
+        }
+
+        .offline .title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--warn);
+        }
+
+        .offline .sub {
+            font-size: 0.72rem;
+            color: var(--sub);
+            margin-top: 4px;
+        }
+
+        /* Dead */
+        .dead .icon {
+            font-size: 2.2rem;
+        }
+
+        .dead .title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #ff2244;
+        }
+
+        .dead .subtitle {
+            font-size: 0.74rem;
+            color: #cc4455;
+            margin-bottom: 4px;
+        }
+
+        /* Phishing */
+        .phishing .icon {
+            font-size: 2.2rem;
+            margin-bottom: 2px;
+        }
+
+        .phishing .title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--phishing);
+        }
+
+        /* Legit */
+        .legit .icon {
+            font-size: 2.2rem;
+            margin-bottom: 2px;
+        }
+
+        .legit .title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--safe);
+        }
+
+        /* URL display */
+        .url-display {
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 4px 8px;
+            font-family: var(--mono);
+            font-size: 0.62rem;
+            color: var(--sub);
+            word-break: break-all;
+            width: 100%;
+            text-align: left;
+            margin: 4px 0;
+        }
+
+        /* Warning block */
+        .warning-text {
+            background: rgba(139, 0, 0, .15);
+            border: 1px solid rgba(255, 34, 68, .25);
+            border-radius: 7px;
+            padding: 8px 10px;
+            font-size: 0.72rem;
+            line-height: 1.5;
+            color: #ffb3bf;
+            width: 100%;
+            text-align: left;
+            margin: 4px 0;
+        }
+
+        /* Confidence bar */
+        .confidence-label {
+            font-size: 0.75rem;
+            color: var(--sub);
+            width: 100%;
+            text-align: left;
+            margin-top: 6px;
+        }
+
+        .bar-bg {
+            width: 100%;
+            height: 9px;
+            background: rgba(255, 255, 255, .06);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 5px;
+            transition: width .5s ease;
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #fff;
+            margin: 4px 0;
+        }
+
+        /* Reasons */
+        .reasons-title {
+            font-size: 0.68rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--sub);
+            width: 100%;
+            text-align: left;
+            margin: 8px 0 4px;
+        }
+
+        .reasons {
+            list-style: none;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .reasons li {
+            background: rgba(255, 255, 255, .03);
+            border: 1px solid rgba(255, 255, 255, .07);
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 0.7rem;
+            line-height: 1.4;
+            text-align: left;
+        }
+
+        /* Escape button */
+        .btn-escape {
+            width: 100%;
+            padding: 9px;
+            background: linear-gradient(135deg, #7a001a, var(--phishing));
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 8px;
+            letter-spacing: 0.2px;
+            transition: opacity .15s;
+            font-family: var(--sans);
+        }
+
+        .btn-escape:hover {
+            opacity: 0.85;
+        }
+
+        /* Meta */
+        .meta {
+            font-size: 0.65rem;
+            color: var(--sub);
+            width: 100%;
+            text-align: left;
+            margin-top: 8px;
+            padding-top: 7px;
+            border-top: 1px solid var(--border);
+            font-family: var(--mono);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <span class="header-icon">&#128737;&#65039;</span>
+        <div>
+            <div class="header-name">FEDrA Phishing Detector</div>
+            <div class="header-sub">Multimodal AI &#183; Real-time</div>
+        </div>
+    </div>
+
+    <div id="container">
+        <div class="state scanning">
+            <div class="scan-icon">&#128269;</div>
+            <div class="scan-text">Scanning page...</div>
+            <div class="scan-sub">Results appear in 5&#8211;15 seconds</div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>

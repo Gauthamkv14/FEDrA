@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FEDrA — Phishing Detector</title>
+  <style>
+    /* ── Design system ─────────────────────────────────────────── */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --bg:        #080c14;
+      --surface:   #0d1421;
+      --surface2:  #111a2e;
+      --border:    #1e2d4a;
+      --accent:    #00d4ff;
+      --accent2:   #0084ff;
+      --danger:    #ff3b5c;
+      --danger-bg: #1a0810;
+      --safe:      #00e676;
+      --safe-bg:   #071a10;
+      --warn:      #ffb347;
+      --text:      #e2eaf8;
+      --muted:     #5a7aaa;
+      --font:      'Inter', system-ui, sans-serif;
+      --mono:      'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 60px;
+    }
+
+    /* ── Grid background ───────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: -1;
+      background-image:
+        linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* ── Header ────────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .logo-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+    .logo-icon {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 0 20px rgba(0,212,255,0.3);
+    }
+    h1 {
+      font-size: 2rem; font-weight: 700;
+      background: linear-gradient(120deg, var(--accent), #a0cfff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+    .tagline {
+      font-size: 0.85rem; color: var(--muted); letter-spacing: 0.5px;
+      text-transform: uppercase; font-weight: 500;
+    }
+
+    /* ── Card ──────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%; max-width: 720px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 40px rgba(0,0,0,0.4);
+    }
+
+    /* ── Input row ─────────────────────────────────────────────── */
+    .input-row {
+      display: flex;
+      gap: 12px;
+    }
+    #urlInput {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #urlInput:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,212,255,0.12);
+    }
+    #urlInput::placeholder { color: var(--muted); }
+
+    #analyzeBtn {
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      padding: 14px 28px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s, transform 0.1s;
+      font-family: var(--font);
+    }
+    #analyzeBtn:hover  { opacity: 0.9; transform: translateY(-1px); }
+    #analyzeBtn:active { transform: translateY(0); }
+    #analyzeBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* ── Scanning animation ────────────────────────────────────── */
+    #scanner {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 36px;
+      text-align: center;
+    }
+    #scanner.visible { display: flex; }
+
+    .scan-ring {
+      width: 72px; height: 72px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-right-color: var(--accent2);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .scan-bar-wrap {
+      width: 100%; max-width: 400px;
+      background: var(--surface2);
+      border-radius: 4px; height: 4px; overflow: hidden;
+    }
+    .scan-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      animation: slide 1.6s ease-in-out infinite;
+      border-radius: 4px;
+    }
+    @keyframes slide {
+      0%   { width: 0%;   margin-left: 0%; }
+      50%  { width: 60%;  margin-left: 20%; }
+      100% { width: 0%;   margin-left: 100%; }
+    }
+    .scan-text { font-size: 0.85rem; color: var(--muted); font-family: var(--mono); }
+
+    /* ── Result panels ─────────────────────────────────────────── */
+    #result { display: none; }
+    #result.visible { display: block; }
+
+    .verdict-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .verdict-icon { font-size: 2.8rem; line-height: 1; }
+    .verdict-title { font-size: 1.7rem; font-weight: 700; }
+    .verdict-subtitle { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
+
+    /* PHISHING panel */
+    .panel-phishing {
+      background: var(--danger-bg);
+      border: 1px solid rgba(255,59,92,0.35);
+      border-radius: 14px;
+      padding: 24px;
+    }
+    .panel-phishing .verdict-title { color: var(--danger); }
+
+    /* LEGITIMATE panel */
+    .panel-safe {
+      background: var(--safe-bg);
+      border: 1px solid rgba(0,230,118,0.3);
+      border-radius: 14px;
+      padding: 24px;
+    }
+    .panel-safe .verdict-title { color: var(--safe); }
+
+    /* ── Risk badge ─────────────────────────────────────────────── */
+    .risk-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-left: auto;
+    }
+    .risk-HIGH   { background: rgba(255,59,92,0.2); color: var(--danger); border: 1px solid rgba(255,59,92,0.4); }
+    .risk-MEDIUM { background: rgba(255,179,71,0.15); color: var(--warn);  border: 1px solid rgba(255,179,71,0.4); }
+    .risk-LOW    { background: rgba(255,179,71,0.08); color: var(--warn);  border: 1px solid rgba(255,179,71,0.2); }
+    .risk-SAFE   { background: rgba(0,230,118,0.1); color: var(--safe);   border: 1px solid rgba(0,230,118,0.3); }
+
+    /* ── Probability bar ────────────────────────────────────────── */
+    .prob-section { margin-bottom: 20px; }
+    .prob-label {
+      display: flex; justify-content: space-between;
+      font-size: 0.8rem; color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .prob-val { font-weight: 700; font-family: var(--mono); }
+    .prob-bar-wrap {
+      background: rgba(255,255,255,0.06);
+      border-radius: 6px; height: 10px; overflow: hidden;
+    }
+    .prob-bar {
+      height: 100%; border-radius: 6px;
+      transition: width 0.8s cubic-bezier(0.22,1,0.36,1);
+    }
+    .prob-bar.danger { background: linear-gradient(90deg, #c0002a, var(--danger)); }
+    .prob-bar.safe   { background: linear-gradient(90deg, #007a3d, var(--safe)); }
+
+    /* ── Reasons list ───────────────────────────────────────────── */
+    .reasons-title {
+      font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.8px; color: var(--muted); margin-bottom: 10px;
+    }
+    .reasons-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .reasons-list li {
+      display: flex; align-items: flex-start; gap: 10px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* ── Meta row ───────────────────────────────────────────────── */
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .meta-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      font-family: var(--mono);
+      color: var(--muted);
+    }
+    .meta-chip span { color: var(--text); font-weight: 500; }
+
+    /* ── Error ──────────────────────────────────────────────────── */
+    #errorBox {
+      display: none;
+      background: rgba(255,59,92,0.08);
+      border: 1px solid rgba(255,59,92,0.3);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.85rem;
+      color: var(--danger);
+      margin-top: 12px;
+    }
+    #errorBox.visible { display: block; }
+
+    /* ── Footer ─────────────────────────────────────────────────── */
+    footer {
+      margin-top: auto; padding-top: 40px;
+      font-size: 0.75rem; color: var(--muted); text-align: center;
+    }
+    footer strong { color: var(--accent); }
+  </style>
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="logo-row">
+      <div class="logo-icon">🛡️</div>
+      <h1>FEDrA</h1>
+    </div>
+    <p class="tagline">Federated Detection of Ransomware &amp; Phishing · Phase 1</p>
+  </header>
+
+  <!-- Input card -->
+  <div class="card">
+    <div class="input-row">
+      <input id="urlInput" type="text"
+             placeholder="https://example.com — paste any URL to analyze"
+             autocomplete="off" autocorrect="off" spellcheck="false" />
+      <button id="analyzeBtn" onclick="analyze()">⚡ Analyze</button>
+    </div>
+    <div id="errorBox"></div>
+  </div>
+
+  <!-- Scanner animation -->
+  <div class="card" id="scanCard" style="display:none;">
+    <div id="scanner" class="visible">
+      <div class="scan-ring"></div>
+      <div class="scan-text" id="scanStatus">Initializing scan…</div>
+      <div class="scan-bar-wrap"><div class="scan-bar"></div></div>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="card" id="resultCard" style="display:none;">
+    <div id="result"></div>
+  </div>
+
+  <footer>
+    <strong>FEDrA</strong> · Multimodal phishing detector ·
+    Server: <code>http://localhost:5000</code>
+  </footer>
+
+<script>
+const API = "http://localhost:5000/analyze";
+
+const scanMessages = [
+  "Checking DNS resolution…",
+  "Fetching page with headless Chrome…",
+  "Extracting URL features…",
+  "Extracting HTML signals…",
+  "Running visual embedding (MobileNetV2)…",
+  "Running Fusion MLP…",
+  "Assessing risk level…",
+];
+
+let scanInterval = null;
+
+function showScan(show) {
+  document.getElementById("scanCard").style.display = show ? "block" : "none";
+  if (show) {
+    let i = 0;
+    scanInterval = setInterval(() => {
+      document.getElementById("scanStatus").textContent = scanMessages[i % scanMessages.length];
+      i++;
+    }, 900);
+  } else {
+    clearInterval(scanInterval);
+  }
+}
+
+function showError(msg) {
+  const box = document.getElementById("errorBox");
+  box.textContent = "⚠️ " + msg;
+  box.classList.add("visible");
+}
+
+function clearError() {
+  const box = document.getElementById("errorBox");
+  box.textContent = "";
+  box.classList.remove("visible");
+}
+
+function riskDot(level) {
+  const map = { HIGH: "🔴", MEDIUM: "🟠", LOW: "🟡", SAFE: "🟢" };
+  return map[level] || "⚪";
+}
+
+function renderResult(data) {
+  const isPhish = data.prediction === "PHISHING";
+  const prob    = data.phishing_probability;
+  const risk    = data.risk_level;
+
+  // Build reasons HTML
+  const reasonsHTML = (data.reasons || []).map(r => `<li>${r}</li>`).join("");
+
+  // Build verdict icon + color class
+  const icon       = isPhish ? "🚨" : "✅";
+  const panelClass = isPhish ? "panel-phishing" : "panel-safe";
+  const barClass   = isPhish ? "danger" : "safe";
+  const displayProb = isPhish ? prob : (100 - prob);
+  const probLabel   = isPhish ? "Phishing probability" : "Legitimacy score";
+
+  const html = `
+    <div class="${panelClass}">
+      <div class="verdict-header">
+        <div class="verdict-icon">${icon}</div>
+        <div>
+          <div class="verdict-title">${data.prediction}</div>
+          <div class="verdict-subtitle">Mode: ${data.mode}</div>
+        </div>
+        <span class="risk-badge risk-${risk}">${riskDot(risk)} ${risk} RISK</span>
+      </div>
+
+      <div class="prob-section">
+        <div class="prob-label">
+          <span>${probLabel}</span>
+          <span class="prob-val">${displayProb.toFixed(1)}%</span>
+        </div>
+        <div class="prob-bar-wrap">
+          <div class="prob-bar ${barClass}" id="probBar" style="width:0%"></div>
+        </div>
+      </div>
+
+      ${data.reasons && data.reasons.length ? `
+        <div class="reasons-title">Detection Signals</div>
+        <ul class="reasons-list">${reasonsHTML}</ul>
+      ` : ""}
+
+      <div class="meta-row">
+        <div class="meta-chip">DNS <span>${data.dns_resolved ? "✅ resolved" : "❌ unresolvable"}</span></div>
+        <div class="meta-chip">Page <span>${data.page_loaded ? "✅ loaded" : "⚠️ unavailable"}</span></div>
+        <div class="meta-chip">Latency <span>${data.latency_s}s</span></div>
+        <div class="meta-chip">Engine <span>${data.mode}</span></div>
+      </div>
+    </div>
+  `;
+
+  const resultDiv  = document.getElementById("result");
+  const resultCard = document.getElementById("resultCard");
+  resultDiv.innerHTML = html;
+  resultCard.style.display = "block";
+  resultDiv.classList.add("visible");
+
+  // Animate the bar after paint
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      const bar = document.getElementById("probBar");
+      if (bar) bar.style.width = displayProb.toFixed(1) + "%";
+    }, 80);
+  });
+}
+
+async function analyze() {
+  const input = document.getElementById("urlInput");
+  const btn   = document.getElementById("analyzeBtn");
+  const url   = input.value.trim();
+
+  if (!url) { showError("Please enter a URL."); return; }
+
+  clearError();
+  btn.disabled = true;
+  btn.textContent = "Scanning…";
+  document.getElementById("resultCard").style.display = "none";
+  showScan(true);
+
+  try {
+    const resp = await fetch(API, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ url }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `Server error ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    showScan(false);
+    renderResult(data);
+
+  } catch (e) {
+    showScan(false);
+    if (e.message.includes("Failed to fetch") || e.message.includes("NetworkError")) {
+      showError("Cannot reach FEDrA API. Make sure api_server.py is running on port 5000.");
+    } else {
+      showError(e.message);
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "⚡ Analyze";
+  }
+}
+
+// Allow Enter key to trigger analysis
+document.getElementById("urlInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") analyze();
+});
+</script>
+
+</body>
+</html>
