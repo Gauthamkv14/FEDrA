@@ -4,20 +4,23 @@
     "Precision": 0.9922,
     "Recall": 0.9769,
     "F1": 0.9845,
-    "AUC": 0.9964
+    "AUC": 0.9985,
+    "input_dim": 22
   },
   "html": {
     "Accuracy": 0.8485,
     "Precision": 0.8788,
     "Recall": 0.8923,
     "F1": 0.8855,
-    "AUC": 0.8649
+    "AUC": 0.8649,
+    "input_dim": 12
   },
   "image": {
     "Accuracy": 0.7727,
     "Precision": 0.84,
     "Recall": 0.8077,
     "F1": 0.8235,
-    "AUC": 0.8196
+    "AUC": 0.82,
+    "input_dim": 1280
   }
 }

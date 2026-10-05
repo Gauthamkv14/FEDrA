@@ -1,0 +1,45 @@
+{
+  "description": "Historical metrics recorded prior to URL schema unification (Step 2).",
+  "note": "The previous URL baseline and fusion model used an 89-dimensional training representation containing 79 one-hot TLD dummy columns, while live inference used 26 features zero-padded to 89. These metrics are preserved for historical reference and should not be directly compared to unified schema models without qualification.",
+  "url_schema_version": "legacy_pre_unification",
+  "legacy_url_train_dimension": 89,
+  "legacy_live_inference_dimension": 26,
+  "legacy_fusion_dimension": 1381,
+  "baseline_metrics": {
+    "url": {
+      "Accuracy": 0.9798,
+      "Precision": 0.9922,
+      "Recall": 0.9769,
+      "F1": 0.9845,
+      "AUC": 0.9964
+    },
+    "html": {
+      "Accuracy": 0.8485,
+      "Precision": 0.8788,
+      "Recall": 0.8923,
+      "F1": 0.8855,
+      "AUC": 0.8649
+    },
+    "image": {
+      "Accuracy": 0.7727,
+      "Precision": 0.84,
+      "Recall": 0.8077,
+      "F1": 0.8235,
+      "AUC": 0.8196
+    }
+  },
+  "fusion_metrics": {
+    "Accuracy": 0.8889,
+    "Precision": 0.9219,
+    "Recall": 0.9077,
+    "F1": 0.9147,
+    "AUC": 0.9292
+  },
+  "zero_day_openphish_eval_legacy": {
+    "sample_count": 25,
+    "detection_rate_pct": 60.0,
+    "correct_count": 15,
+    "false_negative_count": 10,
+    "avg_latency_s": 5.71
+  }
+}

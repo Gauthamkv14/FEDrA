@@ -24,6 +24,8 @@
         "<all_urls>"
       ],
       "js": [
+        "url_features.js",
+        "html_features.js",
         "content.js"
       ],
       "run_at": "document_idle"
