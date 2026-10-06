@@ -44,18 +44,19 @@ from api_server import extract_html_features
 ONNX_DIR = os.path.join("models", "onnx")
 os.makedirs(ONNX_DIR, exist_ok=True)
 
-# ── 1. PyTorch MobileNetV2 GAP Wrapper ─────────────────────────────────────────
+# ── 1. PyTorch MobileNetV2 GAP & Spatial Wrapper ──────────────────────────────
 class MobileNetV2GAP(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.features = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1).features
         self.features.eval()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor):
         # x: [B, 3, 224, 224]
-        feats = self.features(x)
+        feats = self.features(x) # [B, 1280, 7, 7]
         # Global Average Pooling across spatial dimensions (H=7, W=7 -> 1, 1)
-        return feats.mean([2, 3])
+        gap = feats.mean([2, 3]) # [B, 1280]
+        return gap, feats
 
 
 # ── 2. Export Functions ────────────────────────────────────────────────────────
@@ -123,7 +124,7 @@ def export_image_baseline_model():
 
 
 def export_mobilenet_v2():
-    print("[4/5] Exporting MobileNetV2 visual feature extractor...")
+    print("[4/5] Exporting MobileNetV2 visual feature extractor (with spatial features for Grad-CAM)...")
     model = MobileNetV2GAP()
     model.eval()
 
@@ -135,8 +136,8 @@ def export_mobilenet_v2():
         dummy_input,
         onnx_path,
         input_names=["image_input"],
-        output_names=["visual_embedding"],
-        dynamic_axes={"image_input": {0: "batch_size"}, "visual_embedding": {0: "batch_size"}},
+        output_names=["visual_embedding", "spatial_features"],
+        dynamic_axes={"image_input": {0: "batch_size"}, "visual_embedding": {0: "batch_size"}, "spatial_features": {0: "batch_size"}},
         opset_version=17,
         dynamo=False
     )
@@ -368,7 +369,8 @@ def validate_onnx_parity(sample_count: int = 50):
         img_tensor = img_transform(img).unsqueeze(0) # (1, 3, 224, 224)
         # Python
         with torch.no_grad():
-            v_py_emb = mv2_net(img_tensor).numpy() # (1, 1280)
+            v_py_emb_t, _ = mv2_net(img_tensor)
+            v_py_emb = v_py_emb_t.numpy() # (1, 1280)
         v_s = image_bundle["scaler"].transform(v_py_emb)
         v_py_pred = int(image_bundle["model"].predict(v_s)[0])
         v_py_prob = float(image_bundle["model"].predict_proba(v_s)[0][1])

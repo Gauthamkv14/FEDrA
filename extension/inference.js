@@ -380,9 +380,11 @@
         var tInference = performance.now() - t0;
 
         var embeddingData = Array.from(results.visual_embedding.data);
+        var spatialData = results.spatial_features ? results.spatial_features.data : null;
 
         return {
             visual_embedding: embeddingData,
+            spatial_features: spatialData,
             embedding_dim: embeddingData.length,
             preprocess_time_ms: tPrepMs,
             inference_time_ms: Math.round(tInference * 100) / 100,

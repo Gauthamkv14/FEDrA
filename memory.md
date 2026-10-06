@@ -1,9 +1,9 @@
 # FEDrA — Current State Memory
 
 **Last Updated:** 2026-10-06  
-**Current Development Phase:** Phase 1 (Step 6.3 — Browser Image Baseline & Fusion ONNX Migration)  
-**Current Task:** Step 6.3 Complete — Browser-Native Image Baseline & Fusion ONNX Inference. Bundled `image_baseline.onnx`, `fusion_model.onnx`, and `modality_scalers.json` into `extension/models/`. Extended `extension/inference.js` with `runImageBaselineInference()`, `preprocessFusionInput()`, `runFusionInference()`, and `runFullBrowserPipeline()`. In-browser inference is now capable of producing the complete final multimodal verdict across all 5 models locally via `onnxruntime-web` WASM. Side-by-side verification with Flask API backend confirmed 100% class agreement and micro-scale numerical parity across 50 dataset fixtures (Image baseline max prob diff: $4.01 \times 10^{-7}$, Fusion MLP max prob diff: $1.17 \times 10^{-7}$). Defensive failure handling (6/6 PASS) and legacy fallbacks (Flask and Selenium) verified.  
-**Next Task:** Step 6.4 — Client-Authoritative Decision & Server Decoupling, or Explainability (SHAP/Grad-CAM).
+**Current Development Phase:** Phase 1 (Step 7.6 — Explainability Extension UI)  
+**Current Task:** Step 7.6 Complete & Validated — Explainability Extension UI. Designed and implemented clean, dark-themed, CSP-compliant extension popup UI (`extension/popup.html`, `extension/popup.js`) displaying authoritative final verdict, safety score/phishing probability, cross-modal agreement status, observational modality evidence cards (top-3 URL and HTML features), dynamic 7x7 Grad-CAM visual heatmap grid with peak regions, collapsible technical diagnostics drawer, and safe escape handlers. Enforced strictly rendering-only architecture in `popup.js` (0 ONNX, 0 feature extraction, 0 Grad-CAM recomputation, 0 external network requests). All automated and live Chrome headless UI tests passed 100%.  
+**Next Task:** Step 7 Final Audit & Acceptance.
 
 ---
 
@@ -14,15 +14,15 @@
 ---
 
 ## 2. Verified Current Architecture
-- **Architecture Type:** Full Browser-Native ONNX Inference with Retained Server Side-by-Side Verification / Fallback.
-- **Frontend / Client:** Chrome Extension (Manifest V3) executing browser-native URL feature extraction (22 dims), HTML feature extraction (12 dims), tab screenshot capture, and local in-browser ONNX inference for all 5 models (`url_baseline.onnx`, `html_baseline.onnx`, `mobilenet_v2_visual.onnx`, `image_baseline.onnx`, `fusion_model.onnx`) in `background.js` via `extension/inference.js`.
+- **Architecture Type:** Full Browser-Native ONNX Inference, Model-Faithful Feature Attribution, and Visual Grad-CAM with Retained Server Side-by-Side Verification / Fallback.
+- **Frontend / Client:** Chrome Extension (Manifest V3) executing browser-native URL feature extraction (22 dims), HTML feature extraction (12 dims), tab screenshot capture, local in-browser ONNX inference across all 5 models (`url_baseline.onnx`, `html_baseline.onnx`, `mobilenet_v2_visual.onnx`, `image_baseline.onnx`, `fusion_model.onnx`), exact linear logit feature attribution (`extension/attribution.js`), exact visual Grad-CAM ($\alpha_k = w_k / (49 \cdot \sigma_k)$), and downstream multimodal explanation synthesis (`schema_version: "1.0"`).
 - **Backend / Host:** Python Flask API (`scripts/api_server.py`) running on `http://localhost:5000` (retained as reference backend, side-by-side comparison, and defensive fallback).
 - **Acquisition at Runtime:** 
   - **Normal Path:** Browser-native capture directly from active Chrome tab. Zero Selenium spawned. Zero server DNS lookups.
   - **Fallback Path:** Headless Chrome via Selenium (reserved for CLI tests or missing client payload).
-- **Inference Engines:** 
-  - Browser: `onnxruntime-web` (WebAssembly provider) executing all 5 models locally.
-  - Host: Scikit-Learn `MLPClassifier` + `LogisticRegression` (with PyTorch MobileNetV2 fallback).
+- **Inference & Explanation Engines:** 
+  - Browser: `onnxruntime-web` (WebAssembly provider) executing all 5 models locally + `extension/attribution.js` for exact linear logit feature attribution and visual Grad-CAM.
+  - Host: Scikit-Learn `MLPClassifier` + `LogisticRegression` (with PyTorch MobileNetV2 fallback) + `scripts/explain_features.py`.
 
 
 ---

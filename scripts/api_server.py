@@ -417,6 +417,37 @@ def health():
     })
 
 
+@app.route("/test/legit_sample", methods=["GET"])
+def test_legit_sample():
+    return """<!DOCTYPE html>
+<html>
+<head><title>Legitimate Corporate Portal</title></head>
+<body style="font-family: Arial, sans-serif; padding: 40px; background: #f8f9fa;">
+    <h1>Welcome to Corporate Portal</h1>
+    <p>This is a standard informational page without credentials inputs.</p>
+    <a href="https://example.com/about">About Us</a> | <a href="https://example.com/contact">Contact</a>
+</body>
+</html>"""
+
+
+@app.route("/test/phish_sample", methods=["GET"])
+def test_phish_sample():
+    return """<!DOCTYPE html>
+<html>
+<head><title>Security Update — Account Verification Required</title></head>
+<body style="font-family: Arial, sans-serif; padding: 40px; background: #fff;">
+    <div style="max-width: 400px; margin: auto; border: 1px solid #ccc; padding: 20px;">
+        <h2>Verify Your PayPal Account</h2>
+        <form action="/login" method="POST">
+            <input type="text" name="email" placeholder="Email Address" style="width: 100%; margin-bottom: 10px;" />
+            <input type="password" name="password" placeholder="Password" style="width: 100%; margin-bottom: 10px;" />
+            <input type="submit" value="Log In & Verify" style="width: 100%; background: #0070ba; color: #fff; padding: 8px;" />
+        </form>
+    </div>
+</body>
+</html>"""
+
+
 @app.route("/analyze", methods=["POST"])
 def analyze():
     data = request.get_json(force=True) or {}

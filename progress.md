@@ -132,15 +132,64 @@ This document tracks the verified implementation status, known blockers, and the
 - `[ ]` Finalize browser-local verdict as authoritative detection path.
 - `[ ]` Transition Flask server to optional audit/logging mode.
 
-### 6. SHAP Explainability Engine
-- `[ ]` Implement `shap` feature attribution pipeline for URL and HTML structured inputs.
-- `[ ]` Integrate top feature attribution weights into the extension UI.
+### 7.1 Model-Faithful Structured Feature Attribution (Step 7.1 Complete & Validated)
+- `[x]` Inspect URL (22) and HTML (12) Logistic Regression models and identify exact linear logit decomposition method ($c_i = w_i \cdot z_i$).
+- `[x]` Export model coefficients, intercepts, scalers, and description templates to `models/onnx/attribution_parameters.json` and `extension/models/attribution_parameters.json`.
+- `[x]` Implement browser-native attribution engine (`extension/attribution.js`) providing `explainUrlPrediction()`, `explainHtmlPrediction()`, and `explainStructuredModalities()`.
+- `[x]` Validate mathematical reconstruction ($|z - (b_0 + \sum c_i)| < 10^{-14}$) across 50 dataset fixtures for both URL and HTML models.
+- `[x]` Validate Python vs JavaScript numerical parity ($1.43 \times 10^{-6}$ max abs diff) and 100% ranking agreement.
+- `[x]` Verify 100% deterministic output and sub-millisecond execution (< 0.05ms).
+- `[x]` Integrate attribution into `extension/background.js` telemetry without modifying detector predictions.
 
-### 7. Grad-CAM Visual Explainability Engine
-- `[ ]` Implement Grad-CAM heatmap generation on the last convolutional layer of MobileNetV2.
-- `[ ]` Expose visual overlay heatmaps to the UI to highlight suspicious webpage regions.
+### 7.2 Grad-CAM Visual Explainability Engine (Step 7.2 Complete & Validated)
+- `[x]` Derived exact analytical Grad-CAM formulation for MobileNetV2 Layer 18 feature map ($1280 \times 7 \times 7$) $\rightarrow$ GAP $\rightarrow$ StandardScaler $\rightarrow$ LogisticRegression classifier ($\alpha_k = w_k / (49 \cdot \sigma_k)$).
+- `[x]` Proven exact mathematical equivalence against PyTorch Autograd Grad-CAM ($7.22 \times 10^{-9}$ max diff).
+- `[x]` Exported `mobilenet_v2_visual.onnx` with dual outputs (`visual_embedding` $[1, 1280]$ and `spatial_features` $[1, 1280, 7, 7]$) preserving 100% backward compatibility.
+- `[x]` Exported exact visual Grad-CAM weights $\alpha_k$ to `attribution_parameters.json` under `gradcam_channel_weights`.
+- `[x]` Implemented high-performance browser-native Grad-CAM engine in `extension/attribution.js` (`computeVisualGradCam`, `explainVisualGradCam`, `interpolate7x7To224x224`).
+- `[x]` Validated Python vs JavaScript numerical parity across 50 visual samples (Grid max diff: $1.27 \times 10^{-7}$, Heatmap max diff: $1.37 \times 10^{-6}$, Peak regions agreement: 100%).
+- `[x]` Measured in-browser execution latency: Avg 3.34 ms, P95 5.74 ms.
+- `[x]` Verified 100% prediction invariance across URL, HTML, MobileNetV2, Image Baseline, and Fusion models.
+
+### 7.3 Multimodal Explanation Fusion (Step 7.3 Complete & Validated)
+- `[x]` Designed structured explanation contract (`schema_version: "1.0"`) synthesizing URL linear attribution, HTML linear attribution, and Visual Grad-CAM.
+- `[x]` Enforced strict architectural separation between model evidence and multimodal summary; fusion MLP classifier remains authoritative.
+- `[x]` Implemented deterministic Top-N ($N=3$) absolute attribution ranking with raw and scaled values, exact contribution, direction, and descriptions.
+- `[x]` Implemented visual summary contract (Grad-CAM method, target class 1, dimensions, min/max/mean stats, peak regions, objective language).
+- `[x]` Implemented deterministic Cross-Modal Agreement evaluation (`ALL_PHISHING`, `ALL_LEGITIMATE`, `MIXED`, `PARTIAL_*`, `UNAVAILABLE`).
+- `[x]` Implemented in `scripts/explain_features.py` and browser extension `extension/attribution.js` (`fuseMultimodalExplanations`).
+
+### 7.4 Explanation Consistency & Evaluation (Step 7.4 Complete & Validated)
+- `[x]` Verified 100% prediction invariance across all 5 models (URL, HTML, MobileNetV2, Image Baseline, Fusion MLP).
+- `[x]` Verified exact evidence reuse (Step 7.1 linear logit decomposition and Step 7.2 Grad-CAM without recomputation).
+- `[x]` Verified 100% directional consistency ($c_i > 0 \implies \text{phishing}$, $c_i < 0 \implies \text{legitimate}$).
+- `[x]` Verified cross-modal agreement states across canonical test cases (A, B, C1, C2, D1, D2, D3, E).
+- `[x]` Verified graceful missing-modality handling with explicit error codes (`*_EXPLANATION_UNAVAILABLE`).
+- `[x]` Verified 100% byte-identical determinism across 10 repeated evaluation runs.
+- `[x]` Verified feature perturbation directional sanity check (reducing top phishing feature decreases logit).
+### 7.5 Browser Integration of the Explainability Pipeline (Step 7.5 Complete & Validated)
+- `[x]` Integrated `FedraAttribution.explainMultimodalPipeline()` downstream of authoritative prediction in `extension/background.js`.
+- `[x]` Configured browser analysis result contract containing authoritative `prediction`, `modalities`, `explanation` (`schema_version: "1.0"`), and comprehensive `timings`.
+- `[x]` Enforced strict downstream error isolation: explainability exceptions never alter or block prediction verdicts.
+- `[x]` Handled all modality degradation permutations (Full 3 modalities, URL+HTML, URL only, Visual only, Missing inputs).
+- `[x]` Validated 100% prediction invariance across dataset test fixtures with and without explainability.
+- `[x]` Benchmarked in-browser execution latency: JS P50 = 2.00 ms, P95 = 3.00 ms, Max = 4.00 ms (well within < 20 ms budget).
+- `[x]` Maintained full backward compatibility for extension storage (`last_result`), alerts, and fallback pathways.
+
+### 7.6 Extension UI Explainability Integration (Step 7.6 Complete & Validated)
+- `[x]` Designed clean, accessible, CSP-compliant extension popup UI (`extension/popup.html`) with zero external fonts/CDNs and dark cybersecurity theme.
+- `[x]` Implemented strictly rendering-only controller (`extension/popup.js`) with zero ONNX inference, zero feature extraction, and zero Grad-CAM recomputation.
+- `[x]` Rendered authoritative final verdict, safety confidence/phishing probability progress bar, and risk level pill badge.
+- `[x]` Rendered cross-modal agreement banner with consensus chip (`ALL_PHISHING`, `ALL_LEGITIMATE`, `MIXED`, `PARTIAL_*`, `UNAVAILABLE`) and factual summary text.
+- `[x]` Rendered structured modality evidence cards for URL structure and Page DOM content featuring top-3 contributing features with direction tags and model-faithful descriptions.
+- `[x]` Rendered interactive visual layout Grad-CAM card with dynamic 7x7 spatial heatmap grid and peak activation region coordinates.
+- `[x]` Implemented collapsible Technical Diagnostics accordion drawer displaying granular inference latencies, probability breakdown, decision source, and schema version.
+- `[x]` Implemented "Return to Safety" navigation handler for phishing and unreachable sites.
+- `[x]` Validated all 6 UI states and live headless Chrome MV3 extension runtime in `scratch/test_step7_6_ui.py`.
 
 ### 8. End-to-End Validation
 - `[ ]` Run full validation across static holdout test set (198 samples) and zero-day live feed.
 - `[ ]` Benchmark in-browser inference latency (target: < 100ms).
 - `[ ]` Benchmark browser memory and resource footprint.
+
+

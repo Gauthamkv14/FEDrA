@@ -20,3 +20,9 @@ models/*.pb
 # OS
 .DS_Store
 Thumbs.db
+
+# Local / exploratory scripts
+legitamate.py
+
+# Validation / scratch work
+scratch/
