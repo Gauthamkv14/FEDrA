@@ -14,10 +14,10 @@
  * 7. Manages local storage (last_result) and notification alerts.
  */
 
-// Import ONNX Runtime Web and In-Browser Inference Engine
+// Import ONNX Runtime Web, In-Browser Inference Engine, and Feature Attribution Engine
 try {
-    importScripts("libs/onnxruntime-web/ort.min.js", "inference.js");
-    console.log("[FEDrA Background] Successfully imported onnxruntime-web and inference.js");
+    importScripts("libs/onnxruntime-web/ort.min.js", "inference.js", "attribution.js");
+    console.log("[FEDrA Background] Successfully imported onnxruntime-web, inference.js, and attribution.js");
 } catch (e) {
     console.warn("[FEDrA Background] importScripts failed or not in worker scope:", e);
 }
@@ -168,6 +168,23 @@ async function executeLocalInference(requestData) {
         console.warn("[FEDrA Background] FedraInference module unavailable for local inference.");
     }
 
+    // 6. Local Model-Faithful Feature Attribution (URL + HTML structured explanations)
+    var localAttribution = null;
+    if (typeof FedraAttribution !== "undefined") {
+        try {
+            localAttribution = await FedraAttribution.explainStructuredModalities({
+                urlFeatures: requestData.url_features_vector,
+                htmlFeatures: requestData.html_features_vector
+            });
+            console.log(
+                "[FEDrA Background] Feature attribution completed in " +
+                (localAttribution ? localAttribution.combined_latency_ms : 0) + "ms"
+            );
+        } catch (err) {
+            console.warn("[FEDrA Background] Local feature attribution failed:", err);
+        }
+    }
+
     var t_local_total_ms = Math.round((performance.now() - t_local_start) * 100) / 100;
     return {
         url: localUrlResult,
@@ -177,6 +194,7 @@ async function executeLocalInference(requestData) {
         fusion: localFusionResult,
         browser_verdict: browserVerdict,
         browser_prob_pct: browserProbPct,
+        explanations: localAttribution,
         t_local_total_ms: t_local_total_ms
     };
 }
@@ -310,6 +328,7 @@ async function dispatchToBackend(requestData) {
             fusion: localInference.fusion,
             browser_verdict: localInference.browser_verdict,
             browser_phishing_prob_pct: localInference.browser_prob_pct,
+            explanations: localInference.explanations,
             timings: {
                 t_url_inference_ms: localInference.url ? localInference.url.inference_time_ms : 0,
                 t_html_inference_ms: localInference.html ? localInference.html.inference_time_ms : 0,

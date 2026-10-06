@@ -1,0 +1,307 @@
+{
+  "schema_version": "v1",
+  "url": {
+    "feature_names": [
+      "url_len",
+      "num_subdomains",
+      "has_ip",
+      "is_https",
+      "count_at",
+      "count_dash",
+      "count_double_slash",
+      "domain_entropy",
+      "num_params",
+      "has_suspicious_params",
+      "brand_in_domain",
+      "brand_in_subdomain",
+      "has_typosquat",
+      "has_punycode",
+      "excessive_subdomains",
+      "is_suspicious_tld",
+      "free_hosting",
+      "is_shortener",
+      "excessive_hyphens",
+      "has_nonstandard_port",
+      "high_entropy",
+      "long_url"
+    ],
+    "feature_dim": 22,
+    "intercept": 4.128336229399808,
+    "coefficients": [
+      7.191219952481683,
+      -0.19734007203103868,
+      0.0,
+      -2.2430171588695798,
+      0.01632474903164512,
+      0.797966126647381,
+      -0.0024939920128977215,
+      -0.47237738075883273,
+      0.010854979694310936,
+      -0.00762365890341637,
+      -0.4262467654088266,
+      0.09455497314161011,
+      -0.8670218985987632,
+      0.0,
+      0.0,
+      0.21375074352202553,
+      0.32192743769584514,
+      0.003893480845290509,
+      -0.006680558045124341,
+      0.0,
+      0.4573661664366408,
+      -0.026285488554060515
+    ],
+    "scaler": {
+      "mean": [
+        32.66414141414141,
+        0.6111111111111112,
+        0.0,
+        0.13762626262626262,
+        0.006313131313131313,
+        0.5391414141414141,
+        0.0012626262626262627,
+        3.1286318128662054,
+        0.04040404040404041,
+        0.0025252525252525255,
+        0.005050505050505051,
+        0.005050505050505051,
+        0.047979797979797977,
+        0.0,
+        0.0,
+        0.003787878787878788,
+        0.18686868686868688,
+        0.03787878787878788,
+        0.0012626262626262627,
+        0.0,
+        0.023989898989898988,
+        0.015151515151515152
+      ],
+      "scale": [
+        21.5096484580312,
+        0.603255291937238,
+        1.0,
+        0.34450729232019167,
+        0.07920401306849614,
+        1.1485534469088026,
+        0.03551101290511406,
+        0.334815604038485,
+        0.2530297989873813,
+        0.05018840129886796,
+        0.0708872164021114,
+        0.07088721640211185,
+        0.21372350587994648,
+        1.0,
+        1.0,
+        0.06142907098570804,
+        0.38980608093853636,
+        0.19090307830839542,
+        0.03551101290511406,
+        1.0,
+        0.15301759289818115,
+        0.12215542042876544
+      ]
+    },
+    "descriptions": {
+      "url_len": {
+        "phishing": "Elevated URL character length relative to baseline.",
+        "legitimate": "Standard URL character length relative to baseline."
+      },
+      "num_subdomains": {
+        "phishing": "Subdomain depth relative to baseline.",
+        "legitimate": "Low subdomain depth consistent with standard domain structure."
+      },
+      "has_ip": {
+        "phishing": "Hostname uses raw numeric IP address format instead of a domain name.",
+        "legitimate": "Hostname uses standard domain name formatting."
+      },
+      "is_https": {
+        "phishing": "Unencrypted HTTP protocol in use.",
+        "legitimate": "HTTPS encryption protocol in use."
+      },
+      "count_at": {
+        "phishing": "Presence of '@' symbol in URL string.",
+        "legitimate": "No '@' symbol in URL string."
+      },
+      "count_dash": {
+        "phishing": "Elevated hyphen count in URL string.",
+        "legitimate": "Low hyphen count in URL string."
+      },
+      "count_double_slash": {
+        "phishing": "Presence of additional '//' sequence in URL path.",
+        "legitimate": "No additional '//' sequence in URL path."
+      },
+      "domain_entropy": {
+        "phishing": "Elevated domain character entropy relative to baseline.",
+        "legitimate": "Standard domain character entropy relative to baseline."
+      },
+      "num_params": {
+        "phishing": "Elevated number of query parameters.",
+        "legitimate": "Low query parameter count."
+      },
+      "has_suspicious_params": {
+        "phishing": "Query string contains targeted authentication-related parameter keywords.",
+        "legitimate": "No targeted authentication keywords in query parameters."
+      },
+      "brand_in_domain": {
+        "phishing": "Recognized brand keyword present in domain name.",
+        "legitimate": "No recognized brand keyword match in domain name."
+      },
+      "brand_in_subdomain": {
+        "phishing": "Recognized brand keyword present in subdomain prefix.",
+        "legitimate": "No recognized brand keyword match in subdomain prefix."
+      },
+      "has_typosquat": {
+        "phishing": "Domain contains edit-distance match to a recognized brand name.",
+        "legitimate": "Domain spelling does not match known brand edit-distance patterns."
+      },
+      "has_punycode": {
+        "phishing": "Internationalized domain name encoding ('xn--' Punycode) in use.",
+        "legitimate": "Standard ASCII character encoding in domain name."
+      },
+      "excessive_subdomains": {
+        "phishing": "Subdomain depth exceeds 3 levels.",
+        "legitimate": "Subdomain depth is 3 levels or fewer."
+      },
+      "is_suspicious_tld": {
+        "phishing": "Top-Level Domain (TLD) matches list of higher-risk extensions.",
+        "legitimate": "Top-Level Domain (TLD) is not in the higher-risk list."
+      },
+      "free_hosting": {
+        "phishing": "Domain hosted on a recognized free or shared web hosting domain.",
+        "legitimate": "Domain not hosted on known free or shared web hosting domains."
+      },
+      "is_shortener": {
+        "phishing": "URL uses a recognized link shortening service.",
+        "legitimate": "URL does not use a known link shortening service."
+      },
+      "excessive_hyphens": {
+        "phishing": "Domain contains more than 3 hyphens.",
+        "legitimate": "Domain contains 3 or fewer hyphens."
+      },
+      "has_nonstandard_port": {
+        "phishing": "Non-standard network port specified in URL.",
+        "legitimate": "Standard web protocol port used."
+      },
+      "high_entropy": {
+        "phishing": "Domain character entropy exceeds the 3.5 threshold.",
+        "legitimate": "Domain character entropy does not exceed the 3.5 threshold."
+      },
+      "long_url": {
+        "phishing": "URL length exceeds 75 characters.",
+        "legitimate": "URL length is 75 characters or fewer."
+      }
+    }
+  },
+  "html": {
+    "feature_names": [
+      "num_forms",
+      "num_inputs",
+      "num_iframes",
+      "num_ext_links",
+      "num_ext_scripts",
+      "has_password_field",
+      "has_meta_redirect",
+      "script_content_ratio",
+      "favicon_mismatch",
+      "has_auto_submit",
+      "input_submit_ratio",
+      "num_unique_ext_domains"
+    ],
+    "feature_dim": 12,
+    "intercept": -0.11328882216808925,
+    "coefficients": [
+      -0.026290447721576998,
+      -0.08163307209329132,
+      -0.6971849255832772,
+      -2.0526784149627257,
+      -0.34115562668563265,
+      0.7572855540957177,
+      -0.4321167108546555,
+      -0.20801882895686535,
+      0.0501563456087644,
+      -0.07545072138166475,
+      -0.07761566576449765,
+      -2.0854171011704925
+    ],
+    "scaler": {
+      "mean": [
+        1.1123737373737375,
+        7.35479797979798,
+        1.1565656565656566,
+        37.08838383838384,
+        9.792929292929292,
+        0.16666666666666666,
+        0.026515151515151516,
+        0.1568455040017866,
+        0.34974747474747475,
+        0.04040404040404041,
+        5.936491101491101,
+        7.981060606060606
+      ],
+      "scale": [
+        1.6225209284784798,
+        45.66726528262367,
+        2.3291591067763253,
+        118.92224251188097,
+        20.01401151882876,
+        0.37267799624996206,
+        0.1606614398518831,
+        0.19649670574219996,
+        0.47689011171887596,
+        0.19690493625876734,
+        45.30329033803906,
+        35.265957701620664
+      ]
+    },
+    "descriptions": {
+      "num_forms": {
+        "phishing": "Form element count relative to baseline.",
+        "legitimate": "Form element count consistent with baseline."
+      },
+      "num_inputs": {
+        "phishing": "Input field count relative to baseline.",
+        "legitimate": "Input field count consistent with baseline."
+      },
+      "num_iframes": {
+        "phishing": "Presence of embedded iframe elements in page markup.",
+        "legitimate": "Zero or expected iframe element count in page markup."
+      },
+      "num_ext_links": {
+        "phishing": "External domain hyperlink count relative to baseline.",
+        "legitimate": "External domain hyperlink count consistent with baseline."
+      },
+      "num_ext_scripts": {
+        "phishing": "External script source count relative to baseline.",
+        "legitimate": "External script source count consistent with baseline."
+      },
+      "has_password_field": {
+        "phishing": "Password input field present in DOM.",
+        "legitimate": "No password input field present in DOM."
+      },
+      "has_meta_redirect": {
+        "phishing": "Meta-refresh tag present in DOM header.",
+        "legitimate": "No meta-refresh tag present in DOM header."
+      },
+      "script_content_ratio": {
+        "phishing": "Elevated inline script-to-markup ratio.",
+        "legitimate": "Standard inline script-to-markup ratio."
+      },
+      "favicon_mismatch": {
+        "phishing": "Favicon loaded from external domain differing from page host.",
+        "legitimate": "Favicon loaded from same origin as page host."
+      },
+      "has_auto_submit": {
+        "phishing": "Automated form submit script pattern detected in DOM.",
+        "legitimate": "No automated form submit script pattern detected in DOM."
+      },
+      "input_submit_ratio": {
+        "phishing": "Input-to-submit button ratio relative to baseline.",
+        "legitimate": "Input-to-submit button ratio consistent with baseline."
+      },
+      "num_unique_ext_domains": {
+        "phishing": "Unique external domain reference count relative to baseline.",
+        "legitimate": "Unique external domain reference count consistent with baseline."
+      }
+    }
+  }
+}

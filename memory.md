@@ -1,9 +1,9 @@
 # FEDrA — Current State Memory
 
 **Last Updated:** 2026-10-06  
-**Current Development Phase:** Phase 1 (Step 6.3 — Browser Image Baseline & Fusion ONNX Migration)  
-**Current Task:** Step 6.3 Complete — Browser-Native Image Baseline & Fusion ONNX Inference. Bundled `image_baseline.onnx`, `fusion_model.onnx`, and `modality_scalers.json` into `extension/models/`. Extended `extension/inference.js` with `runImageBaselineInference()`, `preprocessFusionInput()`, `runFusionInference()`, and `runFullBrowserPipeline()`. In-browser inference is now capable of producing the complete final multimodal verdict across all 5 models locally via `onnxruntime-web` WASM. Side-by-side verification with Flask API backend confirmed 100% class agreement and micro-scale numerical parity across 50 dataset fixtures (Image baseline max prob diff: $4.01 \times 10^{-7}$, Fusion MLP max prob diff: $1.17 \times 10^{-7}$). Defensive failure handling (6/6 PASS) and legacy fallbacks (Flask and Selenium) verified.  
-**Next Task:** Step 6.4 — Client-Authoritative Decision & Server Decoupling, or Explainability (SHAP/Grad-CAM).
+**Current Development Phase:** Phase 1 (Step 7.1 — Model-Faithful Structured Feature Attribution)  
+**Current Task:** Step 7.1 Complete — Model-Faithful Structured Feature Attribution for URL & HTML. Exported exact model coefficients, intercepts, scalers, and description templates to `attribution_parameters.json`. Implemented `extension/attribution.js` performing exact linear logit decomposition ($c_i = w_i \cdot z_i, z = b_0 + \sum c_i$) in pure JavaScript (< 0.05ms execution, zero ML dependencies). Validated mathematical reconstruction ($< 10^{-14}$ error) and Python vs JavaScript numerical parity ($1.43 \times 10^{-6}$ max abs diff, 100% ranking agreement) across 50 dataset fixtures. Verified deterministic output and zero modification to detector predictions or feature pipelines.  
+**Next Task:** Step 7.2 — Grad-CAM Visual Explainability Engine for MobileNetV2.
 
 ---
 
@@ -14,15 +14,15 @@
 ---
 
 ## 2. Verified Current Architecture
-- **Architecture Type:** Full Browser-Native ONNX Inference with Retained Server Side-by-Side Verification / Fallback.
-- **Frontend / Client:** Chrome Extension (Manifest V3) executing browser-native URL feature extraction (22 dims), HTML feature extraction (12 dims), tab screenshot capture, and local in-browser ONNX inference for all 5 models (`url_baseline.onnx`, `html_baseline.onnx`, `mobilenet_v2_visual.onnx`, `image_baseline.onnx`, `fusion_model.onnx`) in `background.js` via `extension/inference.js`.
+- **Architecture Type:** Full Browser-Native ONNX Inference & Structured Attribution with Retained Server Side-by-Side Verification / Fallback.
+- **Frontend / Client:** Chrome Extension (Manifest V3) executing browser-native URL feature extraction (22 dims), HTML feature extraction (12 dims), tab screenshot capture, local in-browser ONNX inference across all 5 models (`url_baseline.onnx`, `html_baseline.onnx`, `mobilenet_v2_visual.onnx`, `image_baseline.onnx`, `fusion_model.onnx`), and model-faithful feature attribution (`extension/attribution.js`).
 - **Backend / Host:** Python Flask API (`scripts/api_server.py`) running on `http://localhost:5000` (retained as reference backend, side-by-side comparison, and defensive fallback).
 - **Acquisition at Runtime:** 
   - **Normal Path:** Browser-native capture directly from active Chrome tab. Zero Selenium spawned. Zero server DNS lookups.
   - **Fallback Path:** Headless Chrome via Selenium (reserved for CLI tests or missing client payload).
-- **Inference Engines:** 
-  - Browser: `onnxruntime-web` (WebAssembly provider) executing all 5 models locally.
-  - Host: Scikit-Learn `MLPClassifier` + `LogisticRegression` (with PyTorch MobileNetV2 fallback).
+- **Inference & Explanation Engines:** 
+  - Browser: `onnxruntime-web` (WebAssembly provider) executing all 5 models locally + `extension/attribution.js` for exact linear logit feature attribution.
+  - Host: Scikit-Learn `MLPClassifier` + `LogisticRegression` (with PyTorch MobileNetV2 fallback) + `scripts/explain_features.py`.
 
 
 ---

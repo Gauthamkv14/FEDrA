@@ -132,13 +132,18 @@ This document tracks the verified implementation status, known blockers, and the
 - `[ ]` Finalize browser-local verdict as authoritative detection path.
 - `[ ]` Transition Flask server to optional audit/logging mode.
 
-### 6. SHAP Explainability Engine
-- `[ ]` Implement `shap` feature attribution pipeline for URL and HTML structured inputs.
-- `[ ]` Integrate top feature attribution weights into the extension UI.
+### 7.1 Model-Faithful Structured Feature Attribution (Step 7.1 Complete & Validated)
+- `[x]` Inspect URL (22) and HTML (12) Logistic Regression models and identify exact linear logit decomposition method ($c_i = w_i \cdot z_i$).
+- `[x]` Export model coefficients, intercepts, scalers, and description templates to `models/onnx/attribution_parameters.json` and `extension/models/attribution_parameters.json`.
+- `[x]` Implement browser-native attribution engine (`extension/attribution.js`) providing `explainUrlPrediction()`, `explainHtmlPrediction()`, and `explainStructuredModalities()`.
+- `[x]` Validate mathematical reconstruction ($|z - (b_0 + \sum c_i)| < 10^{-14}$) across 50 dataset fixtures for both URL and HTML models.
+- `[x]` Validate Python vs JavaScript numerical parity ($1.43 \times 10^{-6}$ max abs diff) and 100% ranking agreement.
+- `[x]` Verify 100% deterministic output and sub-millisecond execution (< 0.05ms).
+- `[x]` Integrate attribution into `extension/background.js` telemetry without modifying detector predictions.
 
-### 7. Grad-CAM Visual Explainability Engine
-- `[ ]` Implement Grad-CAM heatmap generation on the last convolutional layer of MobileNetV2.
-- `[ ]` Expose visual overlay heatmaps to the UI to highlight suspicious webpage regions.
+### 7.2 Grad-CAM Visual Explainability Engine (Next Step)
+- `[ ]` Implement Grad-CAM visual heatmap generation for MobileNetV2.
+- `[ ]` Expose visual overlay heatmaps to explain suspicious webpage regions.
 
 ### 8. End-to-End Validation
 - `[ ]` Run full validation across static holdout test set (198 samples) and zero-day live feed.

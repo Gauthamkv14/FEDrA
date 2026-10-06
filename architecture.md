@@ -4,9 +4,9 @@ This document details both the **Verified Current Architecture** (as actually im
 
 ---
 
-# PART 1: ACTUAL CURRENT ARCHITECTURE (STEP 6.3 FULL BROWSER-NATIVE INFERENCE STATE)
+# PART 1: ACTUAL CURRENT ARCHITECTURE (STEP 7.1 STRUCTURED ATTRIBUTION STATE)
 
-FEDrA currently operates with **full browser-native ONNX inference** across all modalities (URL, HTML, MobileNetV2 visual extraction, Image Baseline, and Multimodal Fusion MLP) executing locally in-browser via ONNX Runtime Web (WASM), while the Python Flask server and Selenium fallbacks remain fully functional as side-by-side verification and fallback backends:
+FEDrA currently operates with **full browser-native ONNX inference and model-faithful structured feature attribution** across all modalities executing locally in-browser via ONNX Runtime Web (WASM) and JavaScript, while the Python Flask server and Selenium fallbacks remain fully functional as side-by-side verification and fallback backends:
 
 1. **Client-Side In-Browser Feature Extraction & Complete ONNX Inference:**
    - The user's active Chrome tab extracts URL features (22 dims via `extension/url_features.js`) and HTML features (12 dims via `extension/html_features.js`) directly in the Content Script.
@@ -18,11 +18,16 @@ FEDrA currently operates with **full browser-native ONNX inference** across all 
      - `extension/models/image_baseline.onnx` (1280 dims -> Image prediction & phishing probability)
      - `extension/models/fusion_model.onnx` (Concatenated & scaled [22*0.4, 12*0.3, 1280*0.3] -> 1314 dims -> Final Multimodal Verdict)
      - All sessions and modality scalers (`modality_scalers.json`) are cached and reused across tab navigations (~28ms visual latency, ~0.5ms image baseline, ~0.8ms fusion, ~0.2ms lexical/DOM latency).
-2. **Server-Side Verification & Fallback (Flask Backend):**
+2. **Model-Faithful Structured Feature Attribution (Step 7.1):**
+   - `extension/attribution.js` computes exact linear logit decomposition for URL (22) and HTML (12) Logistic Regression models:
+     $$c_i = w_i \cdot \left(\frac{x_i - \mu_i}{\sigma_i}\right), \quad z = b_0 + \sum c_i, \quad P(\text{Phishing}) = \sigma(z)$$
+   - Deterministically maps feature contributions ($c_i > 0$ toward Phishing, $c_i < 0$ toward Legitimate) to human-readable explanation reasons.
+   - Operates entirely client-side with sub-millisecond execution (< 0.05ms) and zero external dependencies.
+3. **Server-Side Verification & Fallback (Flask Backend):**
    - The payload (22 URL features, 12 HTML features, 1280 visual embedding) is dispatched to the Python Flask backend (`scripts/api_server.py`) for side-by-side comparison and fallback telemetry.
    - Flask validates the client-supplied 1280-dim visual embedding (with automatic fallback to server PyTorch MobileNetV2 if missing) and runs server-side fusion MLP.
-   - If the Flask backend is unreachable or offline, the extension seamlessly falls back to the browser-local ONNX verdict.
-3. **Fallback / CLI Path (Server-Side Selenium):** For non-browser CLI evaluation (`test_fusion.py`, `zero_day_eval.py`), the server performs fallback extraction using headless Chrome via Selenium.
+   - If the Flask backend is unreachable or offline, the extension seamlessly falls back to the browser-local ONNX verdict and attribution.
+4. **Fallback / CLI Path (Server-Side Selenium):** For non-browser CLI evaluation (`test_fusion.py`, `zero_day_eval.py`), the server performs fallback extraction using headless Chrome via Selenium.
 
 ```
 ══════════════════════════════════════════════════════════════════════════════════════════
