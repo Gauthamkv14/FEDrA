@@ -170,12 +170,27 @@ HTML_DESCRIPTIONS = {
 def export_params():
     url_bundle = joblib.load(os.path.join(BASE_DIR, "models", "url_baseline.pkl"))
     html_bundle = joblib.load(os.path.join(BASE_DIR, "models", "html_baseline.pkl"))
+    image_bundle = joblib.load(os.path.join(BASE_DIR, "models", "image_baseline.pkl"))
 
     url_scaler = url_bundle["scaler"]
     url_model = url_bundle["model"]
 
     html_scaler = html_bundle["scaler"]
     html_model = html_bundle["model"]
+
+    image_scaler = image_bundle["scaler"]
+    image_model = image_bundle["model"]
+
+    SPATIAL_HEIGHT = 7
+    SPATIAL_WIDTH = 7
+    SPATIAL_AREA = SPATIAL_HEIGHT * SPATIAL_WIDTH  # 49
+
+    # Exact Visual Grad-CAM analytical channel weights:
+    # d(y_phishing)/d(A_kij) = w_k / (SPATIAL_AREA * sigma_k)
+    # alpha_k = (1 / SPATIAL_AREA) * sum_{i,j} d(y_phishing)/d(A_kij) = w_k / (SPATIAL_AREA * sigma_k)
+    image_coef = image_model.coef_[0]
+    image_scale = image_scaler.scale_
+    gradcam_weights = (image_coef / (SPATIAL_AREA * image_scale)).tolist()
 
     params = {
         "schema_version": "v1",
@@ -200,6 +215,20 @@ def export_params():
                 "scale": html_scaler.scale_.tolist()
             },
             "descriptions": HTML_DESCRIPTIONS
+        },
+        "visual": {
+            "feature_dim": 1280,
+            "spatial_dim": [SPATIAL_HEIGHT, SPATIAL_WIDTH],
+            "spatial_area": SPATIAL_AREA,
+            "target_layer": "mobilenet_v2.features.18",
+            "intercept": float(image_model.intercept_[0]),
+            "coefficients": image_coef.tolist(),
+            "scaler": {
+                "mean": image_scaler.mean_.tolist(),
+                "scale": image_scale.tolist()
+            },
+            "gradcam_channel_weights": gradcam_weights,
+            "description": "Visual activation heatmap indicating spatial regions that contribute toward phishing visual indicators."
         }
     }
 
@@ -221,3 +250,4 @@ def export_params():
 
 if __name__ == "__main__":
     export_params()
+

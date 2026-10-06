@@ -1,9 +1,9 @@
 # FEDrA — Current State Memory
 
 **Last Updated:** 2026-10-06  
-**Current Development Phase:** Phase 1 (Step 7.1 — Model-Faithful Structured Feature Attribution)  
-**Current Task:** Step 7.1 Complete — Model-Faithful Structured Feature Attribution for URL & HTML. Exported exact model coefficients, intercepts, scalers, and description templates to `attribution_parameters.json`. Implemented `extension/attribution.js` performing exact linear logit decomposition ($c_i = w_i \cdot z_i, z = b_0 + \sum c_i$) in pure JavaScript (< 0.05ms execution, zero ML dependencies). Validated mathematical reconstruction ($< 10^{-14}$ error) and Python vs JavaScript numerical parity ($1.43 \times 10^{-6}$ max abs diff, 100% ranking agreement) across 50 dataset fixtures. Verified deterministic output and zero modification to detector predictions or feature pipelines.  
-**Next Task:** Step 7.2 — Grad-CAM Visual Explainability Engine for MobileNetV2.
+**Current Development Phase:** Phase 1 (Step 7.6 — Explainability Extension UI)  
+**Current Task:** Step 7.6 Complete & Validated — Explainability Extension UI. Designed and implemented clean, dark-themed, CSP-compliant extension popup UI (`extension/popup.html`, `extension/popup.js`) displaying authoritative final verdict, safety score/phishing probability, cross-modal agreement status, observational modality evidence cards (top-3 URL and HTML features), dynamic 7x7 Grad-CAM visual heatmap grid with peak regions, collapsible technical diagnostics drawer, and safe escape handlers. Enforced strictly rendering-only architecture in `popup.js` (0 ONNX, 0 feature extraction, 0 Grad-CAM recomputation, 0 external network requests). All automated and live Chrome headless UI tests passed 100%.  
+**Next Task:** Step 7 Final Audit & Acceptance.
 
 ---
 
@@ -14,14 +14,14 @@
 ---
 
 ## 2. Verified Current Architecture
-- **Architecture Type:** Full Browser-Native ONNX Inference & Structured Attribution with Retained Server Side-by-Side Verification / Fallback.
-- **Frontend / Client:** Chrome Extension (Manifest V3) executing browser-native URL feature extraction (22 dims), HTML feature extraction (12 dims), tab screenshot capture, local in-browser ONNX inference across all 5 models (`url_baseline.onnx`, `html_baseline.onnx`, `mobilenet_v2_visual.onnx`, `image_baseline.onnx`, `fusion_model.onnx`), and model-faithful feature attribution (`extension/attribution.js`).
+- **Architecture Type:** Full Browser-Native ONNX Inference, Model-Faithful Feature Attribution, and Visual Grad-CAM with Retained Server Side-by-Side Verification / Fallback.
+- **Frontend / Client:** Chrome Extension (Manifest V3) executing browser-native URL feature extraction (22 dims), HTML feature extraction (12 dims), tab screenshot capture, local in-browser ONNX inference across all 5 models (`url_baseline.onnx`, `html_baseline.onnx`, `mobilenet_v2_visual.onnx`, `image_baseline.onnx`, `fusion_model.onnx`), exact linear logit feature attribution (`extension/attribution.js`), exact visual Grad-CAM ($\alpha_k = w_k / (49 \cdot \sigma_k)$), and downstream multimodal explanation synthesis (`schema_version: "1.0"`).
 - **Backend / Host:** Python Flask API (`scripts/api_server.py`) running on `http://localhost:5000` (retained as reference backend, side-by-side comparison, and defensive fallback).
 - **Acquisition at Runtime:** 
   - **Normal Path:** Browser-native capture directly from active Chrome tab. Zero Selenium spawned. Zero server DNS lookups.
   - **Fallback Path:** Headless Chrome via Selenium (reserved for CLI tests or missing client payload).
 - **Inference & Explanation Engines:** 
-  - Browser: `onnxruntime-web` (WebAssembly provider) executing all 5 models locally + `extension/attribution.js` for exact linear logit feature attribution.
+  - Browser: `onnxruntime-web` (WebAssembly provider) executing all 5 models locally + `extension/attribution.js` for exact linear logit feature attribution and visual Grad-CAM.
   - Host: Scikit-Learn `MLPClassifier` + `LogisticRegression` (with PyTorch MobileNetV2 fallback) + `scripts/explain_features.py`.
 
 

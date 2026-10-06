@@ -101,7 +101,7 @@ async function executeLocalInference(requestData) {
             }
         }
 
-        // 3. Local MobileNetV2 Visual Feature Extraction (1280 dims)
+        // 3. Local MobileNetV2 Visual Feature Extraction (1280 dims + 7x7 spatial maps)
         if (requestData.screenshot && !requestData.dead) {
             try {
                 localVisualResult = await FedraInference.runVisualInference(requestData.screenshot);
@@ -168,25 +168,78 @@ async function executeLocalInference(requestData) {
         console.warn("[FEDrA Background] FedraInference module unavailable for local inference.");
     }
 
-    // 6. Local Model-Faithful Feature Attribution (URL + HTML structured explanations)
-    var localAttribution = null;
-    if (typeof FedraAttribution !== "undefined") {
-        try {
-            localAttribution = await FedraAttribution.explainStructuredModalities({
-                urlFeatures: requestData.url_features_vector,
-                htmlFeatures: requestData.html_features_vector
-            });
-            console.log(
-                "[FEDrA Background] Feature attribution completed in " +
-                (localAttribution ? localAttribution.combined_latency_ms : 0) + "ms"
-            );
-        } catch (err) {
-            console.warn("[FEDrA Background] Local feature attribution failed:", err);
-        }
+    // 6. Formulate Authoritative Prediction Object
+    var authoritativePrediction = null;
+    if (localFusionResult) {
+        authoritativePrediction = {
+            class: localFusionResult.predicted_label,
+            label: localFusionResult.prediction,
+            phishing_probability: localFusionResult.phishing_probability,
+            phishing_probability_pct: localFusionResult.phishing_probability_pct,
+            source: "browser_local_fusion"
+        };
+    } else if (localUrlResult) {
+        authoritativePrediction = {
+            class: localUrlResult.predicted_label,
+            label: localUrlResult.prediction,
+            phishing_probability: localUrlResult.phishing_probability,
+            phishing_probability_pct: localUrlResult.phishing_probability_pct,
+            source: "browser_local_url_fallback"
+        };
     }
 
+    // 7. Local Multimodal Feature Attribution & Explainability (Downstream of Prediction)
+    var localExplanation = null;
+    var t_exp_start = performance.now();
+    if (typeof FedraAttribution !== "undefined") {
+        try {
+            localExplanation = await FedraAttribution.explainMultimodalPipeline({
+                urlFeatures: requestData.url_features_vector,
+                htmlFeatures: requestData.html_features_vector,
+                spatialFeatures: localVisualResult ? localVisualResult.spatial_features : null,
+                imagePrediction: localImageResult,
+                finalPrediction: authoritativePrediction,
+                topN: 3
+            });
+            console.log(
+                "[FEDrA Background] Multimodal explanation completed in " +
+                (localExplanation && localExplanation.metadata ? localExplanation.metadata.explanation_latency_ms : 0) + "ms"
+            );
+        } catch (err) {
+            console.warn("[FEDrA Background] Local multimodal explanation failed:", err);
+        }
+    }
+    var t_exp_ms = Math.round((performance.now() - t_exp_start) * 100) / 100;
+
     var t_local_total_ms = Math.round((performance.now() - t_local_start) * 100) / 100;
+
     return {
+        prediction: authoritativePrediction,
+        modalities: {
+            url: localUrlResult,
+            html: localHtmlResult,
+            visual: localVisualResult ? {
+                embedding_dim: localVisualResult.embedding_dim,
+                preprocess_time_ms: localVisualResult.preprocess_time_ms,
+                inference_time_ms: localVisualResult.inference_time_ms,
+                source: localVisualResult.source
+            } : null,
+            image: localImageResult,
+            fusion: localFusionResult
+        },
+        explanation: localExplanation,
+        timings: {
+            t_url_inference_ms: localUrlResult ? localUrlResult.inference_time_ms : 0,
+            t_html_inference_ms: localHtmlResult ? localHtmlResult.inference_time_ms : 0,
+            t_visual_inference_ms: localVisualResult ? localVisualResult.inference_time_ms : 0,
+            t_visual_prep_ms: localVisualResult ? localVisualResult.preprocess_time_ms : 0,
+            t_image_inference_ms: localImageResult ? localImageResult.inference_time_ms : 0,
+            t_fusion_prep_ms: localFusionResult ? localFusionResult.preprocess_time_ms : 0,
+            t_fusion_inference_ms: localFusionResult ? localFusionResult.inference_time_ms : 0,
+            t_explanation_ms: t_exp_ms,
+            t_combined_inference_ms: t_local_total_ms
+        },
+        // Backwards compatibility aliases
         url: localUrlResult,
         html: localHtmlResult,
         visual: localVisualResult,
@@ -194,9 +247,45 @@ async function executeLocalInference(requestData) {
         fusion: localFusionResult,
         browser_verdict: browserVerdict,
         browser_prob_pct: browserProbPct,
-        explanations: localAttribution,
+        explanations: localExplanation,
         t_local_total_ms: t_local_total_ms
     };
+}
+
+/**
+ * Extract human-readable reasons from the multimodal explanation object.
+ */
+function extractReasonsFromExplanation(explanation) {
+    var reasons = [];
+    if (!explanation || !explanation.modalities) return reasons;
+
+    if (explanation.modalities.url && explanation.modalities.url.top_contributing_features) {
+        explanation.modalities.url.top_contributing_features.forEach(function (f) {
+            if (f.direction === "phishing" && f.description) {
+                reasons.push(f.description);
+            }
+        });
+    }
+
+    if (explanation.modalities.html && explanation.modalities.html.top_contributing_features) {
+        explanation.modalities.html.top_contributing_features.forEach(function (f) {
+            if (f.direction === "phishing" && f.description) {
+                reasons.push(f.description);
+            }
+        });
+    }
+
+    if (explanation.modalities.visual && explanation.modalities.visual.available &&
+        (explanation.modalities.visual.prediction === "PHISHING" || explanation.modalities.visual.predicted_label === 1)) {
+        if (explanation.modalities.visual.peak_regions && explanation.modalities.visual.peak_regions.length > 0) {
+            var peak = explanation.modalities.visual.peak_regions[0];
+            var gy = peak.grid_y !== undefined ? peak.grid_y : peak.grid_row;
+            var gx = peak.grid_x !== undefined ? peak.grid_x : peak.grid_col;
+            reasons.push("High visual activation localized in layout grid region (row " + gy + ", col " + gx + ").");
+        }
+    }
+
+    return reasons;
 }
 
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
@@ -276,7 +365,7 @@ async function dispatchToBackend(requestData) {
     var t_fetch_start = performance.now();
     var url = requestData.url;
 
-    // 1. Run local in-browser ONNX inference (URL, HTML, MobileNet)
+    // 1. Run authoritative local in-browser ONNX inference and explainability
     var localInference = await executeLocalInference(requestData);
 
     console.log(
@@ -287,7 +376,9 @@ async function dispatchToBackend(requestData) {
         ", screenshot: " + (requestData.screenshot ? "Present" : "None") + ")"
     );
 
-    // 2. Dispatch to Flask API for image baseline + multimodal fusion inference
+    var reasons = extractReasonsFromExplanation(localInference.explanation);
+
+    // 2. Dispatch to Flask API for verification/telemetry (Non-blocking / parallel)
     fetch(FLASK_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -299,112 +390,143 @@ async function dispatchToBackend(requestData) {
         }
         return res.json();
     })
-    .then(function (result) {
+    .then(function (flaskResult) {
         var t_fetch_ms = Math.round(performance.now() - t_fetch_start);
         var t_total_e2e_ms = Date.now() - (requestData.timings.t_content_sent_ts || Date.now());
 
-        result.scanned_url = url;
-        result.dead_site = requestData.dead || false;
-        result.timings = result.timings || {};
-        result.timings.t_client_readiness_ms = requestData.timings.t_readiness_ms || 0;
-        result.timings.t_client_dom_ms = requestData.timings.t_dom_ms || 0;
-        result.timings.t_client_url_feat_ms = requestData.timings.t_url_feat_ms || 0;
-        result.timings.t_client_html_feat_ms = requestData.timings.t_html_feat_ms || 0;
-        result.timings.t_client_screenshot_ms = requestData.timings.t_screenshot_ms || 0;
-        result.timings.t_client_transfer_ms = t_fetch_ms;
-        result.timings.t_total_e2e_ms = t_total_e2e_ms;
+        var finalVerdict = localInference.browser_verdict || flaskResult.prediction || "UNKNOWN";
+        var finalProbPct = localInference.browser_prob_pct !== null ? localInference.browser_prob_pct : (flaskResult.phishing_probability || 0.0);
+        var riskLevel = finalProbPct >= 70 ? "HIGH" : (finalProbPct >= 40 ? "MEDIUM" : "LOW");
 
-        // Attach local in-browser ONNX diagnostics for validation
-        result.local_inference = {
-            url: localInference.url,
-            html: localInference.html,
-            visual: localInference.visual ? {
-                embedding_dim: localInference.visual.embedding_dim,
-                preprocess_time_ms: localInference.visual.preprocess_time_ms,
-                inference_time_ms: localInference.visual.inference_time_ms,
-                source: localInference.visual.source
-            } : null,
-            image: localInference.image,
-            fusion: localInference.fusion,
-            browser_verdict: localInference.browser_verdict,
-            browser_phishing_prob_pct: localInference.browser_prob_pct,
-            explanations: localInference.explanations,
+        var authoritativePred = localInference.prediction;
+        var acquisitionSource = "browser_local_onnx_verified";
+        if (!authoritativePred && flaskResult.prediction) {
+            authoritativePred = {
+                class: flaskResult.prediction === "PHISHING" ? 1 : 0,
+                label: flaskResult.prediction,
+                phishing_probability: typeof flaskResult.phishing_probability === "number" ? flaskResult.phishing_probability / 100.0 : 0.0,
+                phishing_probability_pct: flaskResult.phishing_probability || 0.0,
+                source: "flask_server_fallback"
+            };
+            acquisitionSource = "flask_server_fallback";
+        }
+
+        var combinedResult = {
+            error: false,
+            scanned_url: url,
+            dead_site: requestData.dead || false,
+            prediction: finalVerdict,
+            phishing_probability: finalProbPct,
+            risk_level: riskLevel,
+            authoritative_prediction: authoritativePred,
+            modalities: localInference.modalities,
+            explanation: localInference.explanation,
+            reasons: reasons.length > 0 ? reasons : (flaskResult.reasons || []),
+            acquisition_source: acquisitionSource,
+            flask_validation: {
+                prediction: flaskResult.prediction,
+                phishing_probability: flaskResult.phishing_probability,
+                status: "validated"
+            },
+            local_inference: localInference,
             timings: {
-                t_url_inference_ms: localInference.url ? localInference.url.inference_time_ms : 0,
-                t_html_inference_ms: localInference.html ? localInference.html.inference_time_ms : 0,
-                t_visual_inference_ms: localInference.visual ? localInference.visual.inference_time_ms : 0,
-                t_visual_prep_ms: localInference.visual ? localInference.visual.preprocess_time_ms : 0,
-                t_image_inference_ms: localInference.image ? localInference.image.inference_time_ms : 0,
-                t_fusion_prep_ms: localInference.fusion ? localInference.fusion.preprocess_time_ms : 0,
-                t_fusion_inference_ms: localInference.fusion ? localInference.fusion.inference_time_ms : 0,
-                t_combined_inference_ms: localInference.t_local_total_ms
+                t_client_readiness_ms: requestData.timings.t_readiness_ms || 0,
+                t_client_dom_ms: requestData.timings.t_dom_ms || 0,
+                t_client_url_feat_ms: requestData.timings.t_url_feat_ms || 0,
+                t_client_html_feat_ms: requestData.timings.t_html_feat_ms || 0,
+                t_client_screenshot_ms: requestData.timings.t_screenshot_ms || 0,
+                t_client_transfer_ms: t_fetch_ms,
+                t_url_inference_ms: localInference.timings.t_url_inference_ms,
+                t_html_inference_ms: localInference.timings.t_html_inference_ms,
+                t_visual_prep_ms: localInference.timings.t_visual_prep_ms,
+                t_visual_inference_ms: localInference.timings.t_visual_inference_ms,
+                t_image_inference_ms: localInference.timings.t_image_inference_ms,
+                t_fusion_prep_ms: localInference.timings.t_fusion_prep_ms,
+                t_fusion_inference_ms: localInference.timings.t_fusion_inference_ms,
+                t_explanation_ms: localInference.timings.t_explanation_ms,
+                t_combined_local_ms: localInference.t_local_total_ms,
+                t_total_e2e_ms: t_total_e2e_ms
             }
         };
 
         console.log(
             "[FEDrA Background] Detection completed in " + t_total_e2e_ms + "ms (" +
-            "Acquisition: " + result.acquisition_source + ", Flask: " +
-            result.prediction + " " + result.phishing_probability + "%, " +
-            "Browser ONNX: " + (localInference.browser_verdict || "N/A") + " " + (localInference.browser_prob_pct !== null ? localInference.browser_prob_pct + "%" : "N/A") + ")"
+            "Local Verdict: " + combinedResult.prediction + " " + combinedResult.phishing_probability + "%, " +
+            "Flask Validation: " + flaskResult.prediction + " " + flaskResult.phishing_probability + "%)"
         );
 
         // Override text for dead/unreachable sites
         if (requestData.dead) {
-            result.prediction = "PHISHING";
-            result.risk_level = "HIGH";
-            var deadReason = "Website is unreachable — likely taken down after phishing activity";
-            if (!result.reasons || result.reasons.length === 0) {
-                result.reasons = [
+            combinedResult.prediction = "PHISHING";
+            combinedResult.risk_level = "HIGH";
+            var deadReason = "Target web host is unreachable or failed network connection.";
+            if (!combinedResult.reasons || combinedResult.reasons.length === 0) {
+                combinedResult.reasons = [
                     deadReason,
-                    "Legitimate sites rarely go offline this way",
-                    "URL pattern matches known phishing signatures"
+                    "Web server failed connection attempt during page acquisition.",
+                    "URL lexical features evaluated via fallback baseline model."
                 ];
-            } else if (!result.reasons.includes(deadReason)) {
-                result.reasons.unshift(deadReason);
+            } else if (!combinedResult.reasons.includes(deadReason)) {
+                combinedResult.reasons.unshift(deadReason);
             }
         }
 
-        chrome.storage.local.set({ last_result: result });
+        chrome.storage.local.set({ last_result: combinedResult });
 
-        // Notification on Phishing (driven by validated fusion verdict)
-        if (result.prediction === "PHISHING") {
-            var topReasons = (result.reasons || []).slice(0, 2).join(". ");
+        // Notification on Phishing (driven by authoritative browser verdict)
+        if (combinedResult.prediction === "PHISHING") {
+            var topReasons = (combinedResult.reasons || []).slice(0, 2).join(". ");
             chrome.notifications.create("fedra_alert", {
                 type: "basic",
                 iconUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-                title: "\u26A0\uFE0F Phishing Detected — " + Math.round(result.phishing_probability || 95) + "%",
+                title: "\u26A0\uFE0F Phishing Detected — " + Math.round(combinedResult.phishing_probability || 95) + "%",
                 message: topReasons || "This site exhibits high-confidence phishing indicators.",
                 priority: 2
             });
         }
     })
     .catch(function (err) {
-        console.error("[FEDrA Background] Processing / Fetch error:", err);
+        console.warn("[FEDrA Background] Flask backend offline or error, operating standalone:", err);
+        var finalVerdict = localInference.browser_verdict || "UNKNOWN";
+        var finalProbPct = localInference.browser_prob_pct !== null ? localInference.browser_prob_pct : 0.0;
+        var riskLevel = finalProbPct >= 70 ? "HIGH" : (finalProbPct >= 40 ? "MEDIUM" : "LOW");
+
         var fallbackResult = {
             error: false,
             scanned_url: url,
-            prediction: localInference.browser_verdict || "UNKNOWN",
-            phishing_probability: localInference.browser_prob_pct || 0.0,
-            risk_level: (localInference.browser_prob_pct || 0) >= 70 ? "HIGH" : ((localInference.browser_prob_pct || 0) >= 40 ? "MEDIUM" : "LOW"),
-            acquisition_source: "browser_local_onnx_standalone",
-            message: "Operating in browser-local standalone mode (Flask backend offline).",
-            local_inference: {
-                url: localInference.url,
-                html: localInference.html,
-                visual: localInference.visual ? {
-                    embedding_dim: localInference.visual.embedding_dim,
-                    source: localInference.visual.source
-                } : null,
-                image: localInference.image,
-                fusion: localInference.fusion,
-                browser_verdict: localInference.browser_verdict,
-                browser_phishing_prob_pct: localInference.browser_prob_pct
+            dead_site: requestData.dead || false,
+            prediction: finalVerdict,
+            phishing_probability: finalProbPct,
+            risk_level: riskLevel,
+            authoritative_prediction: localInference.prediction,
+            modalities: localInference.modalities,
+            explanation: localInference.explanation,
+            reasons: reasons,
+            acquisition_source: localInference.browser_verdict ? "browser_local_onnx_standalone" : "none",
+            message: localInference.browser_verdict ? "Operating in browser-local standalone mode (Flask backend offline)." : "Flask server not running and local inference incomplete. Start api_server.py.",
+            local_inference: localInference,
+            timings: {
+                t_client_readiness_ms: requestData.timings.t_readiness_ms || 0,
+                t_client_dom_ms: requestData.timings.t_dom_ms || 0,
+                t_client_url_feat_ms: requestData.timings.t_url_feat_ms || 0,
+                t_client_html_feat_ms: requestData.timings.t_html_feat_ms || 0,
+                t_client_screenshot_ms: requestData.timings.t_screenshot_ms || 0,
+                t_url_inference_ms: localInference.timings.t_url_inference_ms,
+                t_html_inference_ms: localInference.timings.t_html_inference_ms,
+                t_visual_prep_ms: localInference.timings.t_visual_prep_ms,
+                t_visual_inference_ms: localInference.timings.t_visual_inference_ms,
+                t_image_inference_ms: localInference.timings.t_image_inference_ms,
+                t_fusion_prep_ms: localInference.timings.t_fusion_prep_ms,
+                t_fusion_inference_ms: localInference.timings.t_fusion_inference_ms,
+                t_explanation_ms: localInference.timings.t_explanation_ms,
+                t_combined_local_ms: localInference.t_local_total_ms
             }
         };
 
         if (!localInference.browser_verdict) {
             fallbackResult.error = true;
-            fallbackResult.message = "Flask server not running and local inference incomplete. Start api_server.py.";
+            fallbackResult.authoritative_prediction = null;
+            fallbackResult.prediction = "UNKNOWN";
         }
 
         chrome.storage.local.set({ last_result: fallbackResult });

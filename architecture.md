@@ -4,9 +4,9 @@ This document details both the **Verified Current Architecture** (as actually im
 
 ---
 
-# PART 1: ACTUAL CURRENT ARCHITECTURE (STEP 7.1 STRUCTURED ATTRIBUTION STATE)
+# PART 1: ACTUAL CURRENT ARCHITECTURE (STEP 7.5 BROWSER-INTEGRATED EXPLAINABILITY)
 
-FEDrA currently operates with **full browser-native ONNX inference and model-faithful structured feature attribution** across all modalities executing locally in-browser via ONNX Runtime Web (WASM) and JavaScript, while the Python Flask server and Selenium fallbacks remain fully functional as side-by-side verification and fallback backends:
+FEDrA currently operates with **full browser-native ONNX inference, model-faithful structured feature attribution, visual Grad-CAM explainability, and integrated multimodal evidence synthesis** across all modalities executing locally in-browser via ONNX Runtime Web (WASM) and JavaScript, while the Python Flask server and Selenium fallbacks remain fully functional as side-by-side verification and fallback backends:
 
 1. **Client-Side In-Browser Feature Extraction & Complete ONNX Inference:**
    - The user's active Chrome tab extracts URL features (22 dims via `extension/url_features.js`) and HTML features (12 dims via `extension/html_features.js`) directly in the Content Script.
@@ -14,20 +14,37 @@ FEDrA currently operates with **full browser-native ONNX inference and model-fai
    - `background.js` (MV3 Service Worker) executes local browser-side inference via `extension/inference.js` using bundled `onnxruntime-web` WASM across all 5 models:
      - `extension/models/url_baseline.onnx` (22 dims -> URL prediction & phishing probability)
      - `extension/models/html_baseline.onnx` (12 dims -> HTML prediction & phishing probability)
-     - `extension/models/mobilenet_v2_visual.onnx` (Preprocessed NCHW [1, 3, 224, 224] screenshot -> 1280 visual embedding)
+     - `extension/models/mobilenet_v2_visual.onnx` (Preprocessed NCHW [1, 3, 224, 224] screenshot -> dual output: 1280 visual embedding + $1280 \times 7 \times 7$ spatial feature activations)
      - `extension/models/image_baseline.onnx` (1280 dims -> Image prediction & phishing probability)
-     - `extension/models/fusion_model.onnx` (Concatenated & scaled [22*0.4, 12*0.3, 1280*0.3] -> 1314 dims -> Final Multimodal Verdict)
+     - `extension/models/fusion_model.onnx` (Concatenated & scaled [22*0.4, 12*0.3, 1280*0.3] -> 1314 dims -> Authoritative Multimodal Verdict)
      - All sessions and modality scalers (`modality_scalers.json`) are cached and reused across tab navigations (~28ms visual latency, ~0.5ms image baseline, ~0.8ms fusion, ~0.2ms lexical/DOM latency).
 2. **Model-Faithful Structured Feature Attribution (Step 7.1):**
    - `extension/attribution.js` computes exact linear logit decomposition for URL (22) and HTML (12) Logistic Regression models:
      $$c_i = w_i \cdot \left(\frac{x_i - \mu_i}{\sigma_i}\right), \quad z = b_0 + \sum c_i, \quad P(\text{Phishing}) = \sigma(z)$$
    - Deterministically maps feature contributions ($c_i > 0$ toward Phishing, $c_i < 0$ toward Legitimate) to human-readable explanation reasons.
    - Operates entirely client-side with sub-millisecond execution (< 0.05ms) and zero external dependencies.
-3. **Server-Side Verification & Fallback (Flask Backend):**
-   - The payload (22 URL features, 12 HTML features, 1280 visual embedding) is dispatched to the Python Flask backend (`scripts/api_server.py`) for side-by-side comparison and fallback telemetry.
-   - Flask validates the client-supplied 1280-dim visual embedding (with automatic fallback to server PyTorch MobileNetV2 if missing) and runs server-side fusion MLP.
-   - If the Flask backend is unreachable or offline, the extension seamlessly falls back to the browser-local ONNX verdict and attribution.
-4. **Fallback / CLI Path (Server-Side Selenium):** For non-browser CLI evaluation (`test_fusion.py`, `zero_day_eval.py`), the server performs fallback extraction using headless Chrome via Selenium.
+3. **Visual Grad-CAM Explainability Engine (Step 7.2):**
+   - MobileNetV2 Layer 18 final convolutional block outputs spatial feature map $A \in \mathbb{R}^{1280 \times 7 \times 7}$ where spatial area $\Omega = 7 \times 7 = 49$.
+   - Global Average Pooling: $v_k = \frac{1}{49} \sum_{i,j} A_{k,i,j}$.
+   - Image Baseline logit: $y^{\text{phish}} = b + \sum_k w_k \cdot \left(\frac{v_k - \mu_k}{\sigma_k}\right)$.
+   - Gradient w.r.t spatial activations: $\frac{\partial y^{\text{phish}}}{\partial A_{k,i,j}} = \frac{w_k}{49 \cdot \sigma_k}$.
+   - Exact analytical Grad-CAM channel importance weights:
+     $$\alpha_k^{\text{phish}} = \frac{1}{49} \sum_{i,j} \frac{\partial y^{\text{phish}}}{\partial A_{k,i,j}} = \frac{w_k}{49 \cdot \sigma_k}$$
+   - Spatial importance map computation:
+     $$L_{\text{Grad-CAM}}(i, j) = \text{ReLU}\left(\sum_{k=1}^{1280} \alpha_k \cdot A_{k, i, j}\right)$$
+   - Bilinear upsampling from $7 \times 7$ to $224 \times 224$ with min-max normalization to $[0.0, 1.0]$.
+   - Client-side execution in `extension/attribution.js` (`computeVisualGradCam`, `explainVisualGradCam`) with ~3.3ms latency and exact numerical parity against PyTorch Autograd Grad-CAM ($7.22 \times 10^{-9}$ max diff).
+4. **Browser Integration of Multimodal Explainability Pipeline (Steps 7.3, 7.4 & 7.5):**
+   - `background.js` orchestrates `FedraAttribution.explainMultimodalPipeline()` strictly downstream of the authoritative prediction pipeline (`features -> ONNX models -> fusion -> final prediction -> explainMultimodalPipeline`).
+   - Generates a unified, schema-conformant analysis result (`schema_version: "1.0"`) containing authoritative `prediction`, `modalities`, `explanation`, and `timings`.
+   - **Strict Downstream Error Isolation:** Any failure in feature attribution or Grad-CAM computation is captured and reported in the explanation metadata without disrupting or altering the authoritative detector prediction.
+   - **Modality Degradation Robustness:** Gracefully handles missing modalities (e.g. dead sites, missing screenshots) without throwing exceptions, setting explicit error codes (`*_EXPLANATION_UNAVAILABLE`).
+   - **Deterministic Cross-Modal Agreement:** Evaluates modality consistency (`ALL_PHISHING`, `ALL_LEGITIMATE`, `MIXED`, `PARTIAL_*`, `UNAVAILABLE`).
+   - **Zero External Overhead:** Pure in-browser JavaScript execution (~2.0ms latency), 0 external APIs, 0 LLMs, 0 network requests.
+5. **Server-Side Verification & Fallback (Flask Backend):**
+   - The payload is dispatched to Flask backend (`scripts/api_server.py`) for side-by-side telemetry. If Flask is offline, the browser functions autonomously in standalone local mode.
+6. **Fallback / CLI Path (Server-Side Selenium):** For non-browser CLI evaluation (`test_fusion.py`, `zero_day_eval.py`), the server performs fallback extraction using headless Chrome via Selenium.
+
 
 ```
 ══════════════════════════════════════════════════════════════════════════════════════════
