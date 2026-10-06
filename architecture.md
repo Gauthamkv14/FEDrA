@@ -1,14 +1,27 @@
 # FEDrA — Architecture Specification
 
-This document details both the **Verified Current Architecture** (as actually implemented in the codebase following Step 4 Browser-Native Feature Extraction) and the **Intended Target Architecture** (the target design outlined in project specifications).
+This document details both the **Verified Current Architecture** (as actually implemented in the codebase following Step 5 ONNX Export & Numerical Parity Validation) and the **Intended Target Architecture** (the target design outlined in project specifications).
 
 ---
 
-# PART 1: ACTUAL CURRENT ARCHITECTURE (STEP 4 VERIFIED IMPLEMENTATION)
+# PART 1: ACTUAL CURRENT ARCHITECTURE (STEP 6.3 FULL BROWSER-NATIVE INFERENCE STATE)
 
-FEDrA currently operates on an **optimized client-side feature extraction + hybrid inference architecture**:
-1. **Primary Runtime Path (Browser-Native Feature Extraction):** The user's active Chrome tab extracts URL features (22 dims via `extension/url_features.js`) and HTML features (12 dims via `extension/html_features.js`) directly within the browser context. `background.js` captures the visible tab screenshot via `chrome.tabs.captureVisibleTab()`. The pre-computed feature vectors, HTML, and base64 screenshot are forwarded to `api_server.py`.
-2. **Backend Ingestion:** `scripts/api_server.py` uses client-extracted feature vectors when provided (bypassing server-side HTML/URL parsing), extracts the visual embedding (1280 dims) in-memory, and runs the 1314-dim fusion MLP in ~20ms.
+FEDrA currently operates with **full browser-native ONNX inference** across all modalities (URL, HTML, MobileNetV2 visual extraction, Image Baseline, and Multimodal Fusion MLP) executing locally in-browser via ONNX Runtime Web (WASM), while the Python Flask server and Selenium fallbacks remain fully functional as side-by-side verification and fallback backends:
+
+1. **Client-Side In-Browser Feature Extraction & Complete ONNX Inference:**
+   - The user's active Chrome tab extracts URL features (22 dims via `extension/url_features.js`) and HTML features (12 dims via `extension/html_features.js`) directly in the Content Script.
+   - `background.js` captures visible tab screenshots via `chrome.tabs.captureVisibleTab()`.
+   - `background.js` (MV3 Service Worker) executes local browser-side inference via `extension/inference.js` using bundled `onnxruntime-web` WASM across all 5 models:
+     - `extension/models/url_baseline.onnx` (22 dims -> URL prediction & phishing probability)
+     - `extension/models/html_baseline.onnx` (12 dims -> HTML prediction & phishing probability)
+     - `extension/models/mobilenet_v2_visual.onnx` (Preprocessed NCHW [1, 3, 224, 224] screenshot -> 1280 visual embedding)
+     - `extension/models/image_baseline.onnx` (1280 dims -> Image prediction & phishing probability)
+     - `extension/models/fusion_model.onnx` (Concatenated & scaled [22*0.4, 12*0.3, 1280*0.3] -> 1314 dims -> Final Multimodal Verdict)
+     - All sessions and modality scalers (`modality_scalers.json`) are cached and reused across tab navigations (~28ms visual latency, ~0.5ms image baseline, ~0.8ms fusion, ~0.2ms lexical/DOM latency).
+2. **Server-Side Verification & Fallback (Flask Backend):**
+   - The payload (22 URL features, 12 HTML features, 1280 visual embedding) is dispatched to the Python Flask backend (`scripts/api_server.py`) for side-by-side comparison and fallback telemetry.
+   - Flask validates the client-supplied 1280-dim visual embedding (with automatic fallback to server PyTorch MobileNetV2 if missing) and runs server-side fusion MLP.
+   - If the Flask backend is unreachable or offline, the extension seamlessly falls back to the browser-local ONNX verdict.
 3. **Fallback / CLI Path (Server-Side Selenium):** For non-browser CLI evaluation (`test_fusion.py`, `zero_day_eval.py`), the server performs fallback extraction using headless Chrome via Selenium.
 
 ```
@@ -89,9 +102,9 @@ FEDrA currently operates on an **optimized client-side feature extraction + hybr
 
 1. **Browser Frontend (`extension/`):**
    - `manifest.json`: Manifest V3 configuration registering `url_features.js`, `html_features.js`, and `content.js` with required permissions (`activeTab`, `tabs`, `scripting`, `storage`, `notifications`, `webNavigation`).
-   - `url_features.js`: Pure JavaScript extractor of the 22 canonical lexical URL features (100% parity with Python).
-   - `html_features.js`: Pure JavaScript extractor of the 12 canonical DOM features (100% parity with Python).
-   - `content.js`: Injected script running at `document_idle` with DOM stabilization readiness (~250ms). Extracts URL features and live DOM features directly in-browser, benchmarked via high-precision performance timers.
+   - `url_features.js`: Pure JavaScript extractor of the 22 canonical lexical URL features (100% parity with Python across validated corpus).
+   - `html_features.js`: Pure JavaScript extractor of the 12 canonical DOM features (100% parity with Python across validated corpus).
+   - `content.js`: Injected script running at `document_idle` with DOM stabilization readiness (~250ms). Extracts URL features and live DOM features directly in-browser.
    - `background.js`: Service worker receiving feature vectors and DOM payload, capturing tab screenshot via `chrome.tabs.captureVisibleTab()`, dispatching unified payload to Flask backend, merging end-to-end telemetry ($T_1..T_7$), and issuing desktop alerts.
    - `popup.html` / `popup.js`: Popup UI rendering scanning, safe, phishing, and dead-site cards with a 3-second polling reload.
 
@@ -101,11 +114,11 @@ FEDrA currently operates on an **optimized client-side feature extraction + hybr
    - **Browser-Native Path:** Accepts client-provided URL (22 dims) and HTML (12 dims) feature vectors directly, decodes base64 screenshot in-memory, and runs visual encoder + fusion MLP. **Spawns 0 Selenium processes and completes inference in 20ms–170ms.**
    - **Fallback Path:** Uses server-side URL/HTML extraction and Selenium headless Chrome only when request lacks client features/HTML (e.g. legacy CLI tests).
 
-3. **Machine Learning Pipeline:**
-   - Visual Modality: Frozen PyTorch `mobilenet_v2` feature extractor $\rightarrow$ Global Average Pooling $\rightarrow$ 1280 dimensions.
-   - HTML Modality: 12 DOM features via JavaScript (`extension/html_features.js`) or BeautifulSoup server fallback.
-   - URL Modality: Canonical 22 lexical features via JavaScript (`extension/url_features.js`) or Python (`scripts/url_features.py`).
-   - Fusion: Weighted horizontal concatenation $(22 \times 0.4 + 12 \times 0.3 + 1280 \times 0.3 = 1314\text{ dims}) \rightarrow$ `MLPClassifier(256, 128, 64)`.
+3. **Machine Learning Pipeline & Validated ONNX Artifacts:**
+   - Visual Modality: Frozen PyTorch `mobilenet_v2` feature extractor $\rightarrow$ Global Average Pooling $\rightarrow$ 1280 dimensions. Exported as `models/onnx/mobilenet_v2_visual.onnx`.
+   - HTML Modality: 12 DOM features via JavaScript (`extension/html_features.js`) or BeautifulSoup server fallback. Exported as `models/onnx/html_baseline.onnx`.
+   - URL Modality: Canonical 22 lexical features via JavaScript (`extension/url_features.js`) or Python (`scripts/url_features.py`). Exported as `models/onnx/url_baseline.onnx`.
+   - Fusion: Weighted horizontal concatenation $(22 \times 0.4 + 12 \times 0.3 + 1280 \times 0.3 = 1314\text{ dims}) \rightarrow$ `MLPClassifier(256, 128, 64)`. Exported as `models/onnx/fusion_model.onnx`.
 
 ---
 
@@ -126,7 +139,7 @@ An audit of all DNS operations in the repository reveals:
 
 # PART 3: INTENDED TARGET ARCHITECTURE (DESIRED FUTURE STATE)
 
-The intended target architecture is a **fully client-side, zero-server, privacy-preserving browser extension** where all capture, feature extraction, neural inference, and explainability run locally within the user's browser runtime.
+The intended target architecture is a **fully client-side, zero-server, privacy-preserving browser extension** where all capture, feature extraction, neural inference, and explainability run locally within the user's browser runtime via ONNX Runtime Web.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -175,13 +188,14 @@ The intended target architecture is a **fully client-side, zero-server, privacy-
 
 ### Architectural Progress & Evolution
 
-| Architectural Aspect | Old Baseline (Step 0) | Step 3 Implemented | Step 4 Implemented | Target Architecture (Step 6+) |
-|---|---|---|---|---|
-| **DOM Acquisition** | Selenium re-fetch in Python | Browser-native (`content.js` full DOM) | Browser-native (`content.js`) | Browser-native (`content.js`) |
-| **Screenshot Acquisition** | Selenium `save_screenshot` | `chrome.tabs.captureVisibleTab()` base64 | `chrome.tabs.captureVisibleTab()` | `chrome.tabs.captureVisibleTab()` |
-| **URL Feature Extraction** | Server-side Python | Server-side Python | **Browser-Native (`url_features.js`)** | In-Browser JS/WASM |
-| **HTML Feature Extraction** | Server-side BeautifulSoup | Server-side BeautifulSoup | **Browser-Native (`html_features.js`)** | In-Browser JS/DOM |
-| **Inference Location** | Python Flask Backend | Python Flask Backend (In-Memory) | Hybrid (Client features + Flask MLP) | In-Browser (`onnxruntime-web`) |
-| **Inference Latency** | ~5.7s – 6.1s | ~22ms – 168ms (Backend total) | **~15ms – 150ms total** | < 100ms (Local client-side) |
-| **Selenium Dependency** | Mandatory for every request | Fallback only | Fallback only | Completely removed |
-| **Server DNS Lookups** | Mandatory for every request | Bypassed on browser path | Bypassed on browser path | Completely removed |
+| Architectural Aspect | Old Baseline (Step 0) | Step 3 Implemented | Step 4 & 4.5 Implemented | Step 5 Implemented | Target Architecture (Step 6+) |
+|---|---|---|---|---|---|
+| **DOM Acquisition** | Selenium re-fetch in Python | Browser-native (`content.js` full DOM) | Browser-native (`content.js`) | Browser-native (`content.js`) | Browser-native (`content.js`) |
+| **Screenshot Acquisition** | Selenium `save_screenshot` | `chrome.tabs.captureVisibleTab()` base64 | `chrome.tabs.captureVisibleTab()` | `chrome.tabs.captureVisibleTab()` | `chrome.tabs.captureVisibleTab()` |
+| **URL Feature Extraction** | Server-side Python | Server-side Python | **Browser-Native (`url_features.js`)** | **Browser-Native (`url_features.js`)** | In-Browser JS/WASM |
+| **HTML Feature Extraction** | Server-side BeautifulSoup | Server-side BeautifulSoup | **Browser-Native (`html_features.js`)** | **Browser-Native (`html_features.js`)** | In-Browser JS/DOM |
+| **ONNX Model Artifacts** | None | None | None | **Exported & Numerically Validated (`models/onnx/`)** | Local Browser Runtime |
+| **Inference Location** | Python Flask Backend | Python Flask Backend (In-Memory) | Hybrid (Client features + Flask MLP) | Hybrid (Active) + Validated ONNX Suite | In-Browser (`onnxruntime-web`) |
+| **Inference Latency** | ~5.7s – 6.1s | ~22ms – 168ms (Backend total) | ~15ms – 150ms total | **~15ms – 150ms total** | < 100ms (Local client-side) |
+| **Selenium Dependency** | Mandatory for every request | Fallback only | Fallback only | Fallback only | Completely removed |
+| **Server DNS Lookups** | Mandatory for every request | Bypassed on browser path | Bypassed on browser path | Bypassed on browser path | Completely removed |

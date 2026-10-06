@@ -258,6 +258,23 @@ def extract_visual_embedding(screenshot_source) -> np.ndarray:
         return np.zeros((1, 1280), dtype=np.float32)
 
 
+def validate_client_visual_embedding(emb) -> bool:
+    """
+    Strictly validates client-supplied visual embedding:
+    - Must be a list of exactly 1280 numeric elements.
+    - No booleans, strings, None, NaN, or Infinity.
+    - Must convert cleanly to finite float32 array.
+    """
+    if not isinstance(emb, list) or len(emb) != 1280:
+        return False
+    for x in emb:
+        if isinstance(x, bool) or not isinstance(x, (int, float)):
+            return False
+        if not np.isfinite(x):
+            return False
+    return True
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  INFERENCE ROUTINES
 # ══════════════════════════════════════════════════════════════════════════════
@@ -463,11 +480,20 @@ def analyze():
         else:
             X_html, html_meta = extract_html_features(client_html, url)
 
-        X_visual = extract_visual_embedding(client_screenshot)
+        client_visual_emb = data.get("visual_embedding")
+        visual_source = "server_pytorch"
+        if validate_client_visual_embedding(client_visual_emb):
+            X_visual = np.array(client_visual_emb, dtype=np.float32).reshape(1, -1)
+            visual_source = "browser_onnx"
+        else:
+            X_visual = extract_visual_embedding(client_screenshot)
+            visual_source = "server_pytorch"
+
         t_feat_end = time.time()
 
         t_inf_start = time.time()
         result = run_fusion(X_url, X_html, X_visual)
+        result["visual_embedding_source"] = visual_source
         t_inf_end = time.time()
 
     else:
@@ -522,6 +548,7 @@ def analyze():
         "reasons": reasons,
         "mode": result["mode"],
         "acquisition_source": acquisition_source,
+        "visual_embedding_source": result.get("visual_embedding_source", "server_pytorch"),
         "dns_resolved": dns_ok,
         "page_loaded": page_ok,
         "latency_s": t_total_backend_s,
