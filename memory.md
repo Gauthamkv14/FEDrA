@@ -1,9 +1,9 @@
 # FEDrA — Current State Memory
 
 **Last Updated:** 2026-10-06  
-**Current Development Phase:** Phase 1 (Integrity Establishment & Hardened In-Browser Feature Extraction)  
-**Current Task:** Step 4.5 Complete — Browser Feature Extraction Hardening & Git Release Validation. Pure JavaScript feature extraction (`extension/url_features.js` and `extension/html_features.js`) verified with 100% parity across an expanded test corpus (726 URL feature checks, 60 HTML feature checks). Backend integration verified across `browser_native`, `server_selenium_fallback`, and `client_dead_site` paths. Machine-specific paths removed for full OS portability.  
-**Next Task:** Step 5 — In-Browser Inference Engine & ONNX Model Conversion (or SHAP/Grad-CAM explainability).
+**Current Development Phase:** Phase 1 (Step 6.3 — Browser Image Baseline & Fusion ONNX Migration)  
+**Current Task:** Step 6.3 Complete — Browser-Native Image Baseline & Fusion ONNX Inference. Bundled `image_baseline.onnx`, `fusion_model.onnx`, and `modality_scalers.json` into `extension/models/`. Extended `extension/inference.js` with `runImageBaselineInference()`, `preprocessFusionInput()`, `runFusionInference()`, and `runFullBrowserPipeline()`. In-browser inference is now capable of producing the complete final multimodal verdict across all 5 models locally via `onnxruntime-web` WASM. Side-by-side verification with Flask API backend confirmed 100% class agreement and micro-scale numerical parity across 50 dataset fixtures (Image baseline max prob diff: $4.01 \times 10^{-7}$, Fusion MLP max prob diff: $1.17 \times 10^{-7}$). Defensive failure handling (6/6 PASS) and legacy fallbacks (Flask and Selenium) verified.  
+**Next Task:** Step 6.4 — Client-Authoritative Decision & Server Decoupling, or Explainability (SHAP/Grad-CAM).
 
 ---
 
@@ -14,13 +14,15 @@
 ---
 
 ## 2. Verified Current Architecture
-- **Architecture Type:** Optimized Hybrid Client-Server (Moving to Client-Side In-Browser Inference).
-- **Frontend / Client:** Chrome Extension (Manifest V3) executing browser-native URL feature extraction (22 dims) and HTML feature extraction (12 dims) directly in Content Script (`content.js`, `url_features.js`, `html_features.js`), capturing visible tab screenshot via `chrome.tabs.captureVisibleTab()`.
-- **Backend / Host:** Python Flask API (`scripts/api_server.py`) running on `http://localhost:5000` (ingests client feature vectors when available, with server fallback).
+- **Architecture Type:** Full Browser-Native ONNX Inference with Retained Server Side-by-Side Verification / Fallback.
+- **Frontend / Client:** Chrome Extension (Manifest V3) executing browser-native URL feature extraction (22 dims), HTML feature extraction (12 dims), tab screenshot capture, and local in-browser ONNX inference for all 5 models (`url_baseline.onnx`, `html_baseline.onnx`, `mobilenet_v2_visual.onnx`, `image_baseline.onnx`, `fusion_model.onnx`) in `background.js` via `extension/inference.js`.
+- **Backend / Host:** Python Flask API (`scripts/api_server.py`) running on `http://localhost:5000` (retained as reference backend, side-by-side comparison, and defensive fallback).
 - **Acquisition at Runtime:** 
   - **Normal Path:** Browser-native capture directly from active Chrome tab. Zero Selenium spawned. Zero server DNS lookups.
   - **Fallback Path:** Headless Chrome via Selenium (reserved for CLI tests or missing client payload).
-- **Inference Engine:** Python host environment using PyTorch (`mobilenet_v2`) and Scikit-Learn (`MLPClassifier` / `LogisticRegression`).
+- **Inference Engines:** 
+  - Browser: `onnxruntime-web` (WebAssembly provider) executing all 5 models locally.
+  - Host: Scikit-Learn `MLPClassifier` + `LogisticRegression` (with PyTorch MobileNetV2 fallback).
 
 
 ---
@@ -39,16 +41,18 @@
 
 ## 4. Models & Feature Dimensions
 
-| Component | Architecture / Model | Feature Dimension | Input Details | Saved Artifact |
-|---|---|---|---|---|
-| **URL Baseline** | `LogisticRegression(class_weight='balanced')` | 22 dims | 22 lexical features (`scripts/url_features.py`) | `models/url_baseline.pkl` |
-| **HTML Baseline** | `LogisticRegression(class_weight='balanced')` | 12 dims | 12 DOM structural features | `models/html_baseline.pkl` |
-| **Visual Baseline**| `LogisticRegression(class_weight='balanced')` | 1280 dims | Pretrained MobileNetV2 GAP embeddings | `models/image_baseline.pkl` |
-| **Fusion Model** | `MLPClassifier(hidden_layers=(256, 128, 64))` | 1314 dims | Concatenation of weighted scaled vectors ($22 + 12 + 1280$) | `models/fusion_model.pkl` |
+| Component | Architecture / Model | Feature Dimension | Input Details | Python Artifact | ONNX Artifact (`models/onnx/`) |
+|---|---|---|---|---|---|
+| **URL Baseline** | `LogisticRegression(class_weight='balanced')` | 22 dims | 22 lexical features (`scripts/url_features.py`) | `models/url_baseline.pkl` | `url_baseline.onnx` (866 B) |
+| **HTML Baseline** | `LogisticRegression(class_weight='balanced')` | 12 dims | 12 DOM structural features | `models/html_baseline.pkl` | `html_baseline.onnx` (666 B) |
+| **Visual Baseline**| `LogisticRegression(class_weight='balanced')` | 1280 dims | Pretrained MobileNetV2 GAP embeddings | `models/image_baseline.pkl` | `image_baseline.onnx` (26 KB) |
+| **Visual Extractor**| MobileNetV2 (Feature Extractor + GAP) | `[1, 3, 224, 224]` -> 1280 | RGB normalized image tensor | `torchvision.models.mobilenet_v2` | `mobilenet_v2_visual.onnx` (8.86 MB) |
+| **Fusion Model** | `MLPClassifier(hidden_layers=(256, 128, 64))` | 1314 dims | Concatenation of weighted scaled vectors ($22 + 12 + 1280$) | `models/fusion_model.pkl` | `fusion_model.onnx` (1.51 MB) |
 
 - **Modality Weights:** URL = `0.4`, HTML = `0.3`, Visual = `0.3`.
 - **Fusion Vector:** $(22 \times 0.4) + (12 \times 0.3) + (1280 \times 0.3) = 1314$ dimensions.
-- **Model Serialization:** `joblib.dump()` / `joblib.load()`.
+- **Model Serialization:** Python: `joblib.dump()`, ONNX: opset 17 (`skl2onnx` + `torch.onnx`).
+- **ONNX Contracts & Scalers:** `models/onnx/model_contracts.json`, `models/onnx/modality_scalers.json`.
 - **Performance Metrics (Test Split):**
   - URL Baseline: Acc `0.9798`, AUC `0.9985`, F1 `0.9847`
   - HTML Baseline: Acc `0.8586`, AUC `0.9304`, F1 `0.8906`

@@ -82,10 +82,55 @@ This document tracks the verified implementation status, known blockers, and the
 - `[x]` Ensure OS environment portability (removed machine-specific hardcoded paths from documentation).
 - `[x]` Audit codebase for zero unexpected DNS/WHOIS queries and zero non-canonical dimensions.
 
-### 5. In-Browser Model Conversion & Inference (Next Step)
-- `[ ]` Create model export script (`scripts/export_onnx.py`) to convert MobileNetV2, scalers, and Fusion MLP to ONNX (`.onnx`).
-- `[ ]` Integrate `onnxruntime-web` into Chrome Extension.
-- `[ ]` Implement in-browser tensor normalization and execution, eliminating Python backend requirement.
+### 5. ONNX Model Export & Numerical Parity Validation (Step 5 Complete)
+- `[x]` Create model export script (`scripts/export_onnx.py`) to convert MobileNetV2, scalers, and Fusion MLP to ONNX (`.onnx`).
+- `[x]` Export `models/onnx/url_baseline.onnx` (StandardScaler + LogisticRegression on 22 dims, 866 bytes).
+- `[x]` Export `models/onnx/html_baseline.onnx` (StandardScaler + LogisticRegression on 12 dims, 666 bytes).
+- `[x]` Export `models/onnx/image_baseline.onnx` (StandardScaler + LogisticRegression on 1280 dims, 26 KB).
+- `[x]` Export `models/onnx/mobilenet_v2_visual.onnx` (MobileNetV2 feature extractor + GAP to 1280 dims, 8.86 MB).
+- `[x]` Export `models/onnx/fusion_model.onnx` (MLPClassifier 1314 -> 256 -> 128 -> 64 -> 2, 1.51 MB).
+- `[x]` Export `models/onnx/modality_scalers.json` (scaling parameters and modality weights) and `model_contracts.json`.
+- `[x]` Validate numerical parity against Python across 50 representative samples (`models/onnx/validation_baseline.json`) — 100% class agreement, max probability diff $\le 2.32 \times 10^{-6}$.
+
+### 5.1 ONNX Runtime Web Compatibility Validation (Step 5.1 Complete)
+- `[x]` Execute all 5 ONNX models directly using `onnxruntime-web` with the WebAssembly (WASM) engine.
+- `[x]` Validate exact input/output tensor contracts across all models with zero custom or unsupported operator errors.
+- `[x]` Verify MobileNetV2 preprocessing contract (`[1, 3, 224, 224]`, NCHW, ImageNet normalization).
+- `[x]` Verify manual modality scaling ($W_{\text{url}}=0.4$, $W_{\text{html}}=0.3$, $W_{\text{visual}}=0.3$) and 1314-dimensional concatenation logic.
+- `[x]` Verify 100% class prediction agreement and micro-scale numerical diffs ($< 4.01 \times 10^{-7}$) across the 50 validation fixtures in `onnxruntime-web` WASM.
+
+### 6.1 Browser URL + HTML ONNX Inference (Step 6.1 Complete)
+- `[x]` Bundle `onnxruntime-web` WASM runtime into `extension/libs/onnxruntime-web/`.
+- `[x]` Bundle `url_baseline.onnx` and `html_baseline.onnx` into `extension/models/`.
+- `[x]` Implement focused browser inference module (`extension/inference.js`) with cached ONNX sessions and safe error handling.
+- `[x]` Update `extension/manifest.json` with `web_accessible_resources` for models and WASM libs.
+- `[x]` Integrate local URL (22) and HTML (12) ONNX inference into `extension/background.js` MV3 service worker.
+- `[x]` Retain server-side visual and multimodal fusion inference for production verdict and diagnostic comparison.
+- `[x]` Verify 100% classification agreement and numerical parity across 50 validation fixtures (URL: max diff $2.08 \times 10^{-7}$, HTML: max diff $7.31 \times 10^{-8}$).
+- `[x]` Verify full regression suite (786 feature checks, 22/12/1280/1314 contract, browser-native, dead-site, and Selenium fallback).
+
+### 6.2 Browser-Native MobileNetV2 Visual Feature Extraction (Step 6.2 Complete)
+- `[x]` Bundle `models/onnx/mobilenet_v2_visual.onnx` into `extension/models/`.
+- `[x]` Implement browser screenshot preprocessing in `extension/inference.js` (`Resize(256) -> CenterCrop(224) -> ImageNet Normalization -> NCHW Float32Array`).
+- `[x]` Extend `extension/inference.js` with cached `mobilenetSession` and `runVisualInference()`.
+- `[x]` Update `extension/background.js` to run local visual extraction on tab screenshot and forward 1280-dim embedding to Flask.
+- `[x]` Update `scripts/api_server.py` to validate and ingest client 1280 visual embedding with automatic server PyTorch fallback.
+- `[x]` Validate visual embedding parity against PyTorch reference across 50 dataset samples (Max abs diff: $1.89 \times 10^{-5}$, Mean abs diff: $7.61 \times 10^{-7}$).
+- `[x]` Verify complete regression suite (786 feature checks, URL/HTML in-browser ONNX, Flask fusion, Selenium fallback).
+
+### 6.3 Browser Image Baseline & Fusion ONNX Inference (Step 6.3 Complete & Validated)
+- `[x]` Bundle `image_baseline.onnx`, `fusion_model.onnx`, and `modality_scalers.json` into `extension/models/`.
+- `[x]` Implement `runImageBaselineInference()` (1280 raw visual embedding input with embedded StandardScaler) in `extension/inference.js`.
+- `[x]` Implement `preprocessFusionInput()` and `runFusionInference()` ($[22 \times 0.4, 12 \times 0.3, 1280 \times 0.3] \rightarrow 1314$ dims) in `extension/inference.js`.
+- `[x]` Implement `runFullBrowserPipeline()` to orchestrate complete local detection flow.
+- `[x]` Update `extension/background.js` to execute local image baseline and fusion ONNX inference alongside Flask side-by-side comparison.
+- `[x]` Validate Image Baseline numerical parity across 50 dataset fixtures (Max prob diff: $4.01 \times 10^{-7}$, Class agreement: 100%).
+- `[x]` Validate Fusion MLP numerical parity across 50 dataset fixtures (Max prob diff: $1.17 \times 10^{-7}$, Class agreement: 100%).
+- `[x]` Verify full regression suite, defensive failure rejection (6/6 PASS), and fallback paths (Flask and Selenium retained).
+
+### 6.4 Client-Authoritative Decision & Server Decoupling (Next Step)
+- `[ ]` Finalize browser-local verdict as authoritative detection path.
+- `[ ]` Transition Flask server to optional audit/logging mode.
 
 ### 6. SHAP Explainability Engine
 - `[ ]` Implement `shap` feature attribution pipeline for URL and HTML structured inputs.
