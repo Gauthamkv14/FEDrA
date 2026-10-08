@@ -187,9 +187,31 @@ This document tracks the verified implementation status, known blockers, and the
 - `[x]` Implemented "Return to Safety" navigation handler for phishing and unreachable sites.
 - `[x]` Validated all 6 UI states and live headless Chrome MV3 extension runtime in `scratch/test_step7_6_ui.py`.
 
-### 8. End-to-End Validation
+### 8. Federated Learning Architecture (Step 8 DESIGNED & Validated)
+- `[x]` Audited all 5 trained model architectures, parameters, tensor dimensions, and ONNX contracts.
+- `[x]` Determined federation candidate units: selected Fusion MLP (1314 dims, 377K params) and Linear Baselines (URL: 22, HTML: 12) as trainable targets; froze MobileNetV2 feature extractor.
+- `[x]` Formalized strict decoupling between real-time synchronous in-browser inference (< 60 ms) and asynchronous background FL training.
+- `[x]` Established strict Client Data Boundary prohibiting transmission of URLs, HTML, DOM, screenshots, and browsing activity.
+- `[x]` Defined JSON Schema specification for versioned Client FL Update Contracts with privacy-preserving bucketed sample counts.
+- `[x]` Designed Clamped FedAvg aggregation strategy, 3-tier privacy defense depth (FL $\rightarrow$ SecAgg $\rightarrow$ DP), and comprehensive threat matrix covering 6 attack vectors with initial and future mitigations.
+- `[x]` Designed 3-Gate Model Promotion Pipeline (Performance Non-Degradation, Zero-Day Invariance, ONNX Integrity) with automated client rollback.
+- `[x]` Authored comprehensive architectural specification in `docs/federated_learning_architecture.md` and validated all contracts and invariants in `scratch/test_step8_fl_architecture.py`.
+
+### 9.1 Deterministic Local Federated Learning Simulation (Step 9.1 Complete & Validated)
+- `[x]` Developed deterministic local FL simulation engine (`scripts/federated_simulation.py`) targeting the 377,857 parameter Fusion MLP ($1314 \rightarrow 256 \rightarrow 128 \rightarrow 64 \rightarrow 1$).
+- `[x]` Implemented canonical 80/20 train/test split ($792$ train samples, $198$ test samples) with standardized feature normalization and weighting ($0.4, 0.3, 0.3$).
+- `[x]` Implemented deterministic IID partitioning across 5 clients with uniform sample and class distribution.
+- `[x]` Implemented deterministic Non-IID label-skew partitioning across 5 clients ($94.7\%, 85.7\%, 71.4\%, 38.2\%, 23.1\%$ Phishing ratios) with 0 duplicate sample assignments and 0 test leakage.
+- `[x]` Implemented local mini-batch SGD/Adam client training with BCE loss, parameter delta calculation $\Delta W_i = W_i - W_t$, and L2 delta norm tracking.
+- `[x]` Implemented sample-weighted Federated Averaging (FedAvg): $W_{t+1} = W_t + \sum \frac{n_i}{\sum n_j} \Delta W_i$.
+- `[x]` Evaluated multi-round FedAvg optimization across IID and Non-IID experiments, outputting structured JSON artifacts to `artifacts/federated/`.
+- `[x]` Audited and verified zero raw-data leakage in all FL update payloads and artifact files.
+- `[x]` Authored comprehensive documentation in `docs/federated_learning_simulation.md` and validated all 9 criteria in `scratch/test_step9_1_federated_simulation.py`.
+
+### 10. End-to-End Validation & Future Work
 - `[ ]` Run full validation across static holdout test set (198 samples) and zero-day live feed.
 - `[ ]` Benchmark in-browser inference latency (target: < 100ms).
 - `[ ]` Benchmark browser memory and resource footprint.
+- `[ ]` Implement future FL milestones (Secure Aggregation / Differential Privacy simulation).
 
 

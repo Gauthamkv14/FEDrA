@@ -1,0 +1,11 @@
+{
+  "experiment_name": "FEDrA_Step9_1_Local_Simulation",
+  "timestamp": "2026-10-08",
+  "num_clients": 5,
+  "num_rounds": 3,
+  "local_epochs": 2,
+  "learning_rate": 0.001,
+  "seed": 42,
+  "model": "Fusion MLP (1314 dims, 377,857 params)",
+  "dataset": "990 samples (792 train, 198 holdout)"
+}

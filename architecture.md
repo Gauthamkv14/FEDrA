@@ -221,3 +221,36 @@ The intended target architecture is a **fully client-side, zero-server, privacy-
 | **Inference Latency** | ~5.7s – 6.1s | ~22ms – 168ms (Backend total) | ~15ms – 150ms total | **~15ms – 150ms total** | < 100ms (Local client-side) |
 | **Selenium Dependency** | Mandatory for every request | Fallback only | Fallback only | Fallback only | Completely removed |
 | **Server DNS Lookups** | Mandatory for every request | Bypassed on browser path | Bypassed on browser path | Bypassed on browser path | Completely removed |
+| **Federated Learning** | None | None | None | None | **DESIGNED (Step 8 Protocol, Contracts, Threat Model)** |
+
+---
+
+# PART 3: FEDERATED LEARNING ARCHITECTURE (STEP 8 SPECIFICATION — DESIGNED)
+
+FEDrA defines a privacy-preserving federated model updating architecture enabling client devices to collaboratively train downstream detection models without uploading raw browsing data:
+
+1. **Federated Targets:**
+   - **Primary Target:** Fusion MLP classifier (1314 inputs $\rightarrow$ 377,857 params, ~1.51 MB). Topology: 4 dense layers ($256 \rightarrow 128 \rightarrow 64 \rightarrow 1$ sigmoid unit), outputting 2-class probability distribution ($[P(0), P(1)]$) at runtime interface.
+   - **Secondary Target:** URL (22 dims) and HTML (12 dims) linear baselines.
+   - **Frozen Component:** MobileNetV2 feature extractor remains frozen on client devices (zero conv autograd in browser).
+2. **Inference vs Training Decoupling:**
+   - In-browser inference is 100% local, offline, and synchronous (< 60 ms).
+   - Federated learning is asynchronous, idle-scheduled, and executes in background workers.
+   - **Browser-side FL training is NOT IMPLEMENTED (DESIGNED only).**
+3. **Client Data Boundary & Contract:**
+   - URLs, DOM, screenshots, and browsing activity strictly NEVER leave the client.
+   - Transmitted updates are restricted to parameter deltas ($\Delta W$), bucketed sample counts, and version metadata.
+4. **Three-Tier Privacy Defense:**
+   - Tier 1: Federated Learning (data localization — DESIGNED).
+   - Tier 2: Secure Aggregation (SecAgg / SecAgg+ pairwise blinding — DESIGNED / FUTURE).
+   - Tier 3: Differential Privacy (clipping + Gaussian noise + privacy accountant — DESIGNED / FUTURE; formal guarantees not yet implemented).
+5. **Multi-Gate Model Promotion Pipeline (PROPOSED / TO BE CALIBRATED):**
+   - Gate A: Core Regression Gate on 198-sample holdout test set (no unacceptable drop in accuracy, recall, precision, AUC).
+   - Gate B: Zero-Day Evaluation Gate on established 25-sample OpenPhish live feed (non-regression relative to 76.0% baseline).
+   - Gate C: Legitimate False-Positive Gate on 68-sample safe test split (bounded FPR $\le 1.5\%$).
+   - Gate D: ONNX Integrity & Numerical Stability (0 NaN/Inf, bounded parameter shift, verified opset 17 export).
+   - Gate E: Security / Anomaly verification against poisoning and backdoor updates.
+   - Rollback: Automatic client fallback to previous known-good model $W_t$ if telemetry detects performance degradation.
+6. **Detailed Documentation:** Refer to [`docs/federated_learning_architecture.md`](file:///c:/Users/User/OneDrive/Desktop/Mini%20Projects/Mini%20Project-%203rd%20Year/FEDrA/docs/federated_learning_architecture.md) for full contracts and threat matrices.
+
+

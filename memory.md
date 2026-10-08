@@ -1,9 +1,9 @@
 # FEDrA — Current State Memory
 
-**Last Updated:** 2026-10-06  
-**Current Development Phase:** Phase 1 (Step 7.6 — Explainability Extension UI)  
-**Current Task:** Step 7.6 Complete & Validated — Explainability Extension UI. Designed and implemented clean, dark-themed, CSP-compliant extension popup UI (`extension/popup.html`, `extension/popup.js`) displaying authoritative final verdict, safety score/phishing probability, cross-modal agreement status, observational modality evidence cards (top-3 URL and HTML features), dynamic 7x7 Grad-CAM visual heatmap grid with peak regions, collapsible technical diagnostics drawer, and safe escape handlers. Enforced strictly rendering-only architecture in `popup.js` (0 ONNX, 0 feature extraction, 0 Grad-CAM recomputation, 0 external network requests). All automated and live Chrome headless UI tests passed 100%.  
-**Next Task:** Step 7 Final Audit & Acceptance.
+**Last Updated:** 2026-10-08  
+**Current Development Phase:** Phase 1 (Step 9.1 — Deterministic Local Federated Learning Simulation)  
+**Current Task:** Step 9.1 Complete & Validated (LOCAL SIMULATION) — Deterministic Local Federated Learning Simulation. Implemented standalone PyTorch simulation engine `scripts/federated_simulation.py` targeting the 377,857 parameter Fusion MLP ($1314 \rightarrow 256 \rightarrow 128 \rightarrow 64 \rightarrow 1$). Implemented canonical 80/20 train/test split (792 train, 198 test), 5-client IID partitioning, and 5-client Non-IID label-skew partitioning ($94.7\%, 85.7\%, 71.4\%, 38.2\%, 23.1\%$ Phishing ratios) with 0 duplicate assignments and 0 test leakage. Executed local client training with BCE loss, parameter delta calculation $\Delta W_i = W_i - W_t$, delta L2 norms, and sample-weighted FedAvg aggregation. Evaluated multi-round optimization on the static 198-sample test split. Verified zero raw-data leakage in JSON artifacts (`artifacts/federated/`). Authored documentation in `docs/federated_learning_simulation.md` and validated all 9 tests in `scratch/test_step9_1_federated_simulation.py`. All production inference models remained 100% frozen.  
+**Next Task:** Step 9.1 Final Audit & Acceptance.
 
 ---
 
